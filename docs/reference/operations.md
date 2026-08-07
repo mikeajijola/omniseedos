@@ -1,3 +1,11 @@
 # Structured operations
 
-Initial read operations are `get_company`, `list_capabilities`, `get_capability`, `list_gaps`, `get_plan`, `get_state`, `list_findings`, `get_evidence`, and `explain_change`. Mutations such as `approve_plan` and `apply_approved_plan` require authorization, policy evaluation, and a plan. Human buttons, agent tools, APIs, and machine commands must call the same operation.
+Runtime operations are `getCompany`, `listCapabilities`, `getCapability`, `listGaps`, `getCurrentPlan`, `generatePlan`, `cancelPlan`, `getState`, `listActivity`, `listObservations`, `listFindings`, and `applyPlan`. Mutations require explicit definitions or authorization and approved change IDs. Human buttons, Eve tools, APIs, and machine commands call the same operations through an interchangeable transport.
+
+`LiveTransport` calls the HTTP runtime. `FixtureTransport` preserves isolated frontend development and is intentionally read-only for apply. Components never contain fetch calls or capability-state calculation.
+
+| Capability | Human | Software/AI | Embodied machine/controller |
+| --- | --- | --- | --- |
+| Generate plan | Plan button | Structured `generatePlan` tool | Same transport operation |
+| Read observations/findings | Observe view or Eve | Structured read tool | Same transport operation/subscription |
+| Apply approved changes | Approval/apply button | Authorized structured operation | Authorized structured operation |
