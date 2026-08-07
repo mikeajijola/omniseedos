@@ -1,5 +1,7 @@
 # OmniSeed OS
 
+**Define once in Omniform. Execute through OmniSeed. Experience through any interface.**
+
 **OmniSeed OS is the open capability-centric operating environment for organisations running on Company as Code.** It lets people found, understand, plan, approve, and observe an organisation while consuming—not duplicating—OmniSeed runtime truth.
 
 > **Licensing blocker:** this public repository has no explicit license yet. The source is publicly readable but not licensed for reuse as open source pending a maintainer decision.
