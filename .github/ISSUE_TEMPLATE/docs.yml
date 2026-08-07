@@ -1,0 +1,12 @@
+name: Documentation or accessibility improvement
+description: Improve learnability, reference, fixtures, or inclusive access
+labels: ["type:documentation", "area:accessibility"]
+body:
+  - type: textarea
+    id: audience
+    attributes: {label: Audience and barrier}
+    validations: {required: true}
+  - type: textarea
+    id: proposal
+    attributes: {label: Proposed improvement}
+    validations: {required: true}

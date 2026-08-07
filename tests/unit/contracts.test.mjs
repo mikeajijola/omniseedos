@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {capabilityView,operations,navigation} from '../../lib/omniseed/contracts.mjs';import {eveTools} from '../../lib/eve/index.mjs';
+test('UI consumes calculated state without inference',()=>{assert.equal(capabilityView({id:'support',state:'missing'}).statusLabel,'missing');assert.throws(()=>capabilityView({id:'support'}),/Calculated/)});
+test('primary navigation remains intentionally small',()=>assert.deepEqual(navigation.map(x=>x.label),['Found','Company','Capabilities','Plan','Observe','Activity']));
+test('Eve initially exposes read operations only',()=>{assert.equal(eveTools.get_company.mutation,false);assert.equal(eveTools.approve_plan,undefined);assert.deepEqual(operations.approve_plan.requires,['authorization','policy','plan'])});

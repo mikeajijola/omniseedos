@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';
+const files=fs.readdirSync('fixtures').filter(name=>name.endsWith('.json'));
+test('all deterministic fixtures expose runtime-shaped surfaces',()=>{assert.equal(files.length,6);for(const name of files){const fixture=JSON.parse(fs.readFileSync(path.join('fixtures',name)));assert.ok(fixture.company);assert.ok(fixture.capabilities);assert.ok(fixture.plan);assert.ok(Array.isArray(fixture.events));}});
+test('shared example shows runtime states and support plan unchanged',()=>{const fixture=JSON.parse(fs.readFileSync('fixtures/startup.json'));assert.equal(fixture.capabilities.customer_research.state,'realised');assert.equal(fixture.capabilities.customer_support.state,'missing');assert.equal(fixture.plan.changes[0].resource.id,'support_agent')});

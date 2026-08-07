@@ -1,0 +1,1 @@
+export default function Found(){return <main><h1>What are you trying to build?</h1><p>Describe purpose, customers, outcomes, business model, constraints, and assumptions. You will review the draft before any plan is requested.</p><label htmlFor="intent">Company intent</label><textarea id="intent"/><button type="button">Create draft for review</button></main>}
