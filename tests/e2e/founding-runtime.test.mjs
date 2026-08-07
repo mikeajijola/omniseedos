@@ -39,7 +39,7 @@ test('founder reviews, commits, restarts, and OS renders persistent honest gaps'
     assert.equal(view.capabilities.length,8);
     assert.equal(view.gaps.length,8);
     assert.match(renderOperatingView(view),/Construction Cashflow/);
-    assert.match(renderOperatingView(view),/Remaining gaps: 8/);
+    assert.match(renderOperatingView(view),/<strong>8<\/strong> gaps/);
   } finally {
     if(child)await stop(child);
     await fs.rm(data,{recursive:true,force:true});
