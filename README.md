@@ -2,6 +2,8 @@
 
 **OmniSeed OS is the open capability-centric operating environment for organisations running on Company as Code.** It lets people found, understand, plan, approve, and observe an organisation while consuming—not duplicating—OmniSeed runtime truth.
 
+> **Licensing blocker:** this public repository has no explicit license yet. The source is publicly readable but not licensed for reuse as open source pending a maintainer decision.
+
 `Omniform (meaning) → OmniSeed (execution) → OmniSeed OS (interaction)`
 
 It is for founders, operators, architects, accessibility contributors, interface designers, and developers building human, software/AI, and future embodied-machine access to shared capabilities.
@@ -13,10 +15,10 @@ Node.js 20+ is sufficient; no enterprise environment or external service is requ
 ```sh
 npm install
 npm test
-npm run dev
+npm run dev:fixtures
 ```
 
-The development server renders deterministic fixtures at `http://localhost:3000`. See the [fixture guide](docs/getting-started/fixtures.md).
+The fixture server renders deterministic data at `http://localhost:3000`. For the primary live path, start `npm run runtime` in a neighbouring OmniSeed checkout, then run `npm run dev` here. See the [live runtime guide](docs/getting-started/live-runtime.md) and [fixture guide](docs/getting-started/fixtures.md).
 
 ## Product areas
 

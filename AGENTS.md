@@ -6,6 +6,7 @@ OmniSeed OS renders and exposes capabilities; it does not own Company-as-Code tr
 - Capabilities are primary; resources are actor implementations. Human UI is one interface, not the canonical capability.
 - Eve cannot mutate storage or bypass planning, policy, authorization, or apply.
 - Every meaningful action needs a structured operation suitable for humans, software/AI, and future embodied machines.
+- UI routes depend on `OmniSeedTransport`; never put direct fetch calls in components.
 - Missing capability states must be understandable and actionable, never hidden.
 - Preserve keyboard, screen-reader, voice, API, and machine use; avoid hover-, drag-, position-, or mouse-only actions.
 - Keep fixtures deterministic and free of secrets/personal data.
