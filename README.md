@@ -12,7 +12,7 @@ It is for founders, operators, architects, accessibility contributors, interface
 
 ## Try it
 
-Node.js 20+ is sufficient; no enterprise environment or external service is required.
+Node.js 22.13+ is sufficient; no enterprise environment or external service is required for local operation.
 
 ```sh
 npm install
@@ -22,9 +22,9 @@ npm run dev:fixtures
 
 The fixture server renders deterministic data at `http://localhost:3000`. For the primary live path, start `npm run runtime` in a neighbouring OmniSeed checkout, then run `npm run dev` here. Visit `/found` to create a persistent company through the free mock founding designer. See the [founding guide](docs/getting-started/founding.md), [live runtime guide](docs/getting-started/live-runtime.md), and [fixture guide](docs/getting-started/fixtures.md).
 
-**[Open the hosted OmniSeed OS demo](https://omniseed-os.vercel.app)**
+**[Open the hosted OmniSeed OS](https://omniseed-os.vercel.app)**
 
-The public Vercel deployment uses explicit, read-only **Demo mode** for visual feedback; it does not claim persistent live execution. See the [Vercel deployment guide](docs/guides/deploy-vercel.md).
+The deployment guide distinguishes runtime liveness from visitor authority. A hosted runtime can be durable and live while anonymous visitors remain read-only. See the [Vercel deployment guide](docs/guides/deploy-vercel.md).
 
 ## Product areas
 

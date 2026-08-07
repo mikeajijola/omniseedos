@@ -1,16 +1,16 @@
 # Deploy OmniSeed OS to Vercel
 
-Vercel hosts the web operating environment; it is a replaceable infrastructure choice and does not alter Omniform or OmniSeed Core. The current public deployment is a static, read-only demo using actual `OmniSeedTransport` view contracts and deterministic data. It does not persist mutations.
+Vercel hosts the web operating environment and same-origin OmniSeed adapter. It remains replaceable infrastructure and does not alter Omniform or OmniSeed Core.
 
-Production demo: [omniseed-os.vercel.app](https://omniseed-os.vercel.app)
+Production: [omniseed-os.vercel.app](https://omniseed-os.vercel.app)
 
 ## Modes
 
-| Mode | Development | Preview/production | Persistence |
-| --- | --- | --- | --- |
-| `live` | Default `npm run dev`; `OMNISEED_RUNTIME_URL` defaults to `http://127.0.0.1:8787` | Future remote durable runtime | Runtime StateStore |
-| `fixture` | `npm run dev:fixtures` | Optional isolated review | None |
-| `demo` | `npm run dev:demo` | Current Vercel build | None; read-only |
+| Mode | Use | Persistence |
+| --- | --- | --- |
+| `live` | Local runtime or hosted same-origin runtime | Local or remote SQLite through OmniSeed stores |
+| `fixture` | Isolated frontend development | None |
+| `demo` | Deterministic visual fallback | None; read-only |
 
 Only the central transport resolver reads mode configuration. Components depend on `OmniSeedTransport`.
 
@@ -25,14 +25,6 @@ vercel link --yes --project omniseed-os
 vercel deploy
 ```
 
-Inspect the preview URL and verify `/`, `/found`, `/company`, `/capabilities`, `/plan`, `/observe`, `/activity`, and `/lily`. When appropriate:
+Set database and owner secrets through Vercel environment management, never repository files. Inspect `/`, `/found`, `/company`, `/capabilities`, `/plan`, `/observe`, `/activity`, and `/lily`, then promote with `vercel deploy --prod`.
 
-```sh
-vercel deploy --prod
-```
-
-The Vercel project configures `OMNISEED_TRANSPORT_MODE=demo` for preview and production. No secret runtime URL is required in demo mode. `.vercel` contains account-specific link metadata and is ignored.
-
-## Runtime limitations
-
-Vercel's ephemeral runtime filesystem is not used as an OmniSeed StateStore. A future live deployment must use a remote runtime with durable state or a suitable serverless StateStore implementation. GitHub CI remains authoritative for tests and cross-repository lifecycle validation; Vercel performs deployment only.
+The static build stays a truthful demo fallback; public routes are server-rendered through LiveTransport when configured live. `.vercel` is ignored. GitHub CI remains authoritative for validation; Vercel performs deployment.
