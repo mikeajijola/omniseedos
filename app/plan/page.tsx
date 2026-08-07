@@ -1,0 +1,1 @@
+export default function Plan(){return <main><h1>Plan</h1><p>Review changes, affected capabilities, approvals, human actions, external dependencies, risk, reversibility, and known cost.</p><button type="button">Approve selected changes</button></main>}

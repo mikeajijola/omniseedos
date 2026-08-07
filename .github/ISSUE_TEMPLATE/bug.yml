@@ -1,0 +1,12 @@
+name: Experience bug
+description: Report incorrect rendering, interaction, fixture, or accessibility behaviour
+labels: ["type:bug", "area:os"]
+body:
+  - type: textarea
+    id: problem
+    attributes: {label: Expected and actual behaviour}
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes: {label: Reproduction, assistive technology, and evidence}
+    validations: {required: true}
