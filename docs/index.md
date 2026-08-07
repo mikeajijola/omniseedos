@@ -6,5 +6,6 @@
 - **Architect/developer:** run the [live runtime](getting-started/live-runtime.md), then read [system boundaries](concepts/system-boundaries.md), [structured operations](reference/operations.md), and ADRs.
 - **AI/integration/embodied-machine builder:** use the same structured capability operations and events; never scrape UI text.
 - **Contributor:** use the [fixture workflow](getting-started/fixtures.md) and accessibility guide.
+- **Deployment contributor:** use the [Vercel CLI preview and production guide](guides/deploy-vercel.md).
 
 Git `/docs` is canonical and is published through GitHub Pages.

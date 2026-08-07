@@ -16,3 +16,4 @@ jobs:
       - run: npm run test:live
       - run: npm run build
       - run: test -s dist/index.html
+      - run: node --test tests/e2e/static-deployment.test.mjs
