@@ -16,5 +16,6 @@ OmniSeed OS renders and exposes capabilities; it does not own Company-as-Code tr
 - Founding UI edits proposal workflow state only; canonical company creation must use authorized `commitFoundingDraft` through LiveTransport.
 - Resolve live, fixture, and demo modes centrally; components must not inspect Vercel or deployment environment variables.
 - Never treat Vercel's ephemeral filesystem as durable OmniSeed state or put Vercel semantics into portable Company-as-Code.
+- Do not introduce OS-specific storage. Lily and every UI route use the same OmniSeed runtime and its SQLite-first persistence contracts.
 - Hosted pages use same-origin LiveTransport and server-derived actor authority. Never expose store/provider credentials or trust browser-supplied permissions.
 - Make the smallest coherent change; update tests, fixtures, docs, and examples. Run `npm run lint && npm test && npm run build` and report evidence.
