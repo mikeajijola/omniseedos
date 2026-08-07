@@ -25,7 +25,7 @@ vercel link --yes --project omniseed-os
 vercel deploy
 ```
 
-Inspect the preview URL and verify `/`, `/found`, `/company`, `/capabilities`, `/plan`, `/observe`, `/activity`, and `/eve`. When appropriate:
+Inspect the preview URL and verify `/`, `/found`, `/company`, `/capabilities`, `/plan`, `/observe`, `/activity`, and `/lily`. When appropriate:
 
 ```sh
 vercel deploy --prod

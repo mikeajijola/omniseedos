@@ -2,4 +2,4 @@
 
 - Status: Accepted
 
-Important actions expose one underlying capability contract. Buttons, Eve tools, APIs, and machine commands differ only as interfaces; authorization, policy, transition, audit, and evidence remain common.
+Important actions expose one underlying capability contract. Buttons, Lily tools, APIs, and machine commands differ only as interfaces; authorization, policy, transition, audit, and evidence remain common.

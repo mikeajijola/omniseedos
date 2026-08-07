@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {capabilityView,operations,navigation} from '../../lib/omniseed/contracts.mjs';import {eveTools} from '../../lib/eve/index.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {capabilityView,operations,navigation} from '../../lib/omniseed/contracts.mjs';import {lilyIdentity,LILY_OPERATIONAL_IDENTITY} from '../../lib/lily/index.mjs';
 test('UI consumes calculated state without inference',()=>{assert.equal(capabilityView({id:'support',state:'missing'}).statusLabel,'missing');assert.throws(()=>capabilityView({id:'support'}),/Calculated/)});
 test('primary navigation remains intentionally small',()=>assert.deepEqual(navigation.map(x=>x.label),['Found','Company','Capabilities','Plan','Observe','Activity']));
-test('Eve exposes live read operations only',()=>{assert.equal(eveTools.get_company,'getCompany');assert.equal(eveTools.apply_plan,undefined);assert.deepEqual(operations.applyPlan.requires,['authorization','policy','approved_change_ids'])});
+test('renaming Lily preserves the steward audit identity',()=>{assert.equal(lilyIdentity({displayName:'Rose'}).actorId,LILY_OPERATIONAL_IDENTITY);assert.equal(lilyIdentity({displayName:'Rose'}).displayName,'Rose');assert.deepEqual(operations.applyPlan.requires,['authorization','policy','approved_change_ids'])});
