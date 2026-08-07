@@ -4,7 +4,7 @@ OmniSeed OS renders and exposes capabilities; it does not own Company-as-Code tr
 
 - Consume OmniSeed plans, calculated capability state, evidence, drift, findings, and events. Do not recreate that logic in components.
 - Capabilities are primary; resources are actor implementations. Human UI is one interface, not the canonical capability.
-- Eve cannot mutate storage or bypass planning, policy, authorization, or apply.
+- Lily is the default display identity for the persistent `company_steward`; renaming the presentation must not change authority or audit identity. Lily cannot mutate storage or bypass planning, policy, authorization, or apply.
 - Every meaningful action needs a structured operation suitable for humans, software/AI, and future embodied machines.
 - UI routes depend on `OmniSeedTransport`; never put direct fetch calls in components.
 - Missing capability states must be understandable and actionable, never hidden.

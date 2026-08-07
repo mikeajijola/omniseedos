@@ -4,7 +4,7 @@
 
 ## Decision
 
-Routes and Eve depend on the `OmniSeedTransport` domain interface. `LiveTransport` uses the real HTTP runtime; `FixtureTransport` supplies deterministic isolated development.
+Routes and Lily depend on the `OmniSeedTransport` domain interface. `LiveTransport` uses the real HTTP runtime; `FixtureTransport` supplies deterministic isolated development.
 
 ## Consequences
 

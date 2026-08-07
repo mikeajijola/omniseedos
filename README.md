@@ -32,6 +32,6 @@ The public Vercel deployment uses explicit, read-only **Demo mode** for visual f
 
 - [Omniform](https://github.com/mikeajijola/omniform): portable semantics, reusable capabilities, policies, and monitor definitions.
 - [OmniSeed](https://github.com/mikeajijola/omniseed): validation, calculated state, plan/apply, providers, evidence, drift, and events.
-- **OmniSeed OS**: operating experience, accessibility, Eve, and actor interfaces using those shared capabilities.
+- **OmniSeed OS**: operating experience, accessibility, Lily, and actor interfaces using those shared capabilities.
 
 See [CONTRIBUTING](CONTRIBUTING.md), [docs](docs/index.md), and [AGENTS.md](AGENTS.md).
