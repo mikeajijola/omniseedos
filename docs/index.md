@@ -1,5 +1,7 @@
 # OmniSeed OS documentation
 
+Start with the [capability-realisation experience](concepts/capability-realisation-experience.md): Lily turns intent into governed company capability work while implementation resources remain progressively disclosed.
+
 - **Founder:** start with Found and describe what you are building; review the draft before requesting a plan.
 - **New founder:** follow [Start a company](getting-started/founding.md) to review and commit a persistent founding draft.
 - **Operator:** use Company, Capabilities, Plan, Observe, and Activity to understand intent, gaps, evidence, and change.
