@@ -2,6 +2,8 @@
 
 Vercel hosts the web operating environment; it is a replaceable infrastructure choice and does not alter Omniform or OmniSeed Core. The current public deployment is a static, read-only demo using actual `OmniSeedTransport` view contracts and deterministic data. It does not persist mutations.
 
+Production demo: [omniseed-os.vercel.app](https://omniseed-os.vercel.app)
+
 ## Modes
 
 | Mode | Development | Preview/production | Persistence |
