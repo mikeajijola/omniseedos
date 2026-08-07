@@ -2,6 +2,17 @@
   "$schema":"https://openapi.vercel.sh/vercel.json",
   "buildCommand":"npm run vercel-build",
   "outputDirectory":"dist",
+  "rewrites":[
+    {"source":"/","destination":"/api/page?route=home"},
+    {"source":"/owner","destination":"/api/page?route=owner"},
+    {"source":"/company","destination":"/api/page?route=company"},
+    {"source":"/capabilities","destination":"/api/page?route=capabilities"},
+    {"source":"/plan","destination":"/api/page?route=plan"},
+    {"source":"/observe","destination":"/api/page?route=observe"},
+    {"source":"/activity","destination":"/api/page?route=activity"},
+    {"source":"/infrastructure","destination":"/api/page?route=infrastructure"},
+    {"source":"/lily","destination":"/api/page?route=lily"}
+  ],
   "cleanUrls":true,
   "trailingSlash":false
 }

@@ -9,5 +9,6 @@ Start with the [capability-realisation experience](concepts/capability-realisati
 - **AI/integration/embodied-machine builder:** use the same structured capability operations and events; never scrape UI text.
 - **Contributor:** use the [fixture workflow](getting-started/fixtures.md) and accessibility guide.
 - **Deployment contributor:** use the [Vercel CLI preview and production guide](guides/deploy-vercel.md).
+- **Hosted operator:** read the [hosted live runtime](guides/hosted-live-runtime.md), its access boundary, and simulated-provider labels.
 
 Git `/docs` is canonical and is published through GitHub Pages.
