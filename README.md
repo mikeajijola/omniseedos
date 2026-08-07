@@ -18,7 +18,7 @@ npm test
 npm run dev:fixtures
 ```
 
-The fixture server renders deterministic data at `http://localhost:3000`. For the primary live path, start `npm run runtime` in a neighbouring OmniSeed checkout, then run `npm run dev` here. See the [live runtime guide](docs/getting-started/live-runtime.md) and [fixture guide](docs/getting-started/fixtures.md).
+The fixture server renders deterministic data at `http://localhost:3000`. For the primary live path, start `npm run runtime` in a neighbouring OmniSeed checkout, then run `npm run dev` here. Visit `/found` to create a persistent company through the free mock founding designer. See the [founding guide](docs/getting-started/founding.md), [live runtime guide](docs/getting-started/live-runtime.md), and [fixture guide](docs/getting-started/fixtures.md).
 
 ## Product areas
 
