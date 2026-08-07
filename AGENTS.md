@@ -10,4 +10,5 @@ OmniSeed OS renders and exposes capabilities; it does not own Company-as-Code tr
 - Missing capability states must be understandable and actionable, never hidden.
 - Preserve keyboard, screen-reader, voice, API, and machine use; avoid hover-, drag-, position-, or mouse-only actions.
 - Keep fixtures deterministic and free of secrets/personal data.
+- Founding UI edits proposal workflow state only; canonical company creation must use authorized `commitFoundingDraft` through LiveTransport.
 - Make the smallest coherent change; update tests, fixtures, docs, and examples. Run `npm run lint && npm test && npm run build` and report evidence.
