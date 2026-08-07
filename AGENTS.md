@@ -6,6 +6,7 @@ OmniSeed OS renders and exposes capabilities; it does not own Company-as-Code tr
 - Capabilities are primary; resources are actor implementations. Human UI is one interface, not the canonical capability.
 - Lily is the default display identity for the persistent `company_steward`; renaming the presentation must not change authority or audit identity. Lily cannot mutate storage or bypass planning, policy, authorization, or apply.
 - Every meaningful action needs a structured operation suitable for humans, software/AI, and future embodied machines.
+- Operation schemas, permissions, mutation, approval, risk, and interface metadata derive from the OmniSeed registry compiled from Omniform. OS primitives project them; never create an independent semantic action catalogue.
 - UI routes depend on `OmniSeedTransport`; never put direct fetch calls in components.
 - Missing capability states must be understandable and actionable, never hidden.
 - Preserve keyboard, screen-reader, voice, API, and machine use; avoid hover-, drag-, position-, or mouse-only actions.
