@@ -1,6 +1,0 @@
-node_modules/
-dist/
-_site/
-.vercel/
-.DS_Store
-.env*
