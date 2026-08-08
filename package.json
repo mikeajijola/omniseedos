@@ -1,0 +1,13 @@
+{
+  "name": "@omniseed/os",
+  "version": "1.0.0-alpha.1",
+  "description": "Per-company operating environment for OmniSeed.",
+  "type": "module",
+  "scripts": { "start": "node src/server.js", "test": "node --test", "check": "npm test" },
+  "dependencies": {
+    "@omniseed/engine": "file:../omniseed",
+    "@omniseed/omniform": "file:../omniform"
+  },
+  "engines": { "node": ">=22" },
+  "license": "Apache-2.0"
+}
