@@ -15,6 +15,7 @@ jobs:
       - run: npm test
       - run: npm run test:fixtures
       - run: git clone --depth 1 https://github.com/mikeajijola/omniseed.git ../omniseed
+      - run: npm install --prefix ../omniseed
       - run: npm run test:live
       - run: npm run build
       - run: test -s dist/index.html
