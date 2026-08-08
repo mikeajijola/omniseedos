@@ -1,1 +1,0 @@
-{"company":{"id":"partial","name":"Partial Company","purpose":"Demonstrate partial realisation"},"capabilities":{"support":{"id":"support","name":"Support","state":"partial","required":true,"resources":["support_team"],"evidence":[]}},"plan":{"changes":[]},"findings":[],"events":[]}

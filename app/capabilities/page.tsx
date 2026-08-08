@@ -1,1 +1,0 @@
-export default function Capabilities(){return <main><h1>Capabilities</h1><p>Status shown here is calculated by OmniSeed and linked to resources, gaps, evidence, health, and proposed changes.</p></main>}
