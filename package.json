@@ -3,11 +3,12 @@
   "version": "1.0.0-alpha.1",
   "description": "Per-company operating environment for OmniSeed.",
   "type": "module",
-  "scripts": { "start": "node src/server.js", "test": "node --test", "check": "npm test" },
+  "exports": { ".": "./src/app.js" },
+  "scripts": { "start": "node src/server.js", "test": "node --test", "test:distribution": "node scripts/verify-distribution.mjs", "check": "npm test" },
   "dependencies": {
-    "@omniseed/engine": "file:../omniseed",
-    "@omniseed/omniform": "file:../omniform"
+    "@omniseed/engine": "1.0.0-alpha.1",
+    "@omniseed/omniform": "1.0.0-alpha.1"
   },
   "engines": { "node": ">=22" },
-  "license": "Apache-2.0"
+  "files": ["src", "public", "README.md", "docs", "scripts"]
 }

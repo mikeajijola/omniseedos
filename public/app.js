@@ -23,7 +23,7 @@ function project(kind) {
   $("#projection-kind").textContent = "COMPANY PROJECTION"; $("#projection-title").textContent = labels[kind] ?? "Capabilities";
   let content = [];
   if (kind === "capabilities") content = registry.capabilities.map(item => card(item.name, `${item.requirements.filter(req => req.covered).length}/${item.requirements.length} requirements covered`, item.state));
-  else if (kind === "providers") content = registry.providers.map(item => card(item.family, item.provider, "configured"));
+  else if (kind === "providers") content = registry.providers.map(item => card(item.family, item.providerId, item.state));
   else if (kind === "activity") content = [card("Runtime activity", "Apply and reconciliation history is retained in company state", "available")];
   else content = registry.resources.filter(item => item.family === kind).map(item => card(item.name, item.provider ?? "No provider", item.observed?.status ?? (item.deployed ? "deployed" : "desired")));
   $("#projection-content").innerHTML = content.join("") || card(`No ${kind}`, "No desired resources are declared", "missing");

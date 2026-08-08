@@ -10,4 +10,12 @@ npm start
 
 Open `http://localhost:4310`. Set `OMNIFORM_PATH`, `OMNISEED_STATE`, and `PORT` to run another company instance.
 
-Lily is the front door. The initial steward uses deterministic intent projections for inspection and plan requests; a semantic resolver can later sit in front of the same registry and policy path without gaining direct mutation authority.
+Lily is the front door. `LilyResolverReference` is deliberately deterministic: it selects only declared, implemented and currently available operations, returns clarification/unsupported otherwise, and never calls providers.
+
+One OmniSeed OS instance represents one company by default. It consumes that company's Omniform declaration, state, provider map and runtime capability registry. It is not a shared multi-company SaaS control plane.
+
+## Packaging boundary
+
+Development may link local workspaces. Distribution consumes the versioned `@omniseed/engine` and `@omniseed/omniform` packages; a deployed company does not require sibling source repositories. The package test guards against `file:../...` production dependencies. Licensing remains unresolved and this package declares no license metadata.
+
+Given versioned contract artifacts, `npm run test:distribution -- <omniform.tgz> <engine.tgz>` packs OmniSeed OS, installs all three artifacts into a fresh isolated consumer, and verifies the public OS import without any repository topology.
