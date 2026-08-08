@@ -6,6 +6,9 @@ OmniSeed OS renders and exposes capabilities; it does not own Company-as-Code tr
 - Capabilities are primary; resources are actor implementations. Human UI is one interface, not the canonical capability.
 - Do not introduce a resource abstraction that competes with Capability. Agents, skills, connectors, workflows, schedules, providers, people, partners, and machines are progressively disclosed realisations.
 - Natural language resolves to structured capability intent. Lily never invokes provider SDKs, and the OS never calculates requirement coverage.
+- Capability is primary and resources realise it through offerings. Connector is first-class and distinct from Provider; providers implement only the Omniform primitives they support.
+- Semantic reasoning must hand off to structured deterministic execution. Lily always uses OmniSeed operations.
+- Do not hard-code company truth. Prefer reusable Omniform packages over domain-specific UI behaviour and add no infrastructure without demonstrated need.
 - Lily is the default display identity for the persistent `company_steward`; renaming the presentation must not change authority or audit identity. Lily cannot mutate storage or bypass planning, policy, authorization, or apply.
 - Every meaningful action needs a structured operation suitable for humans, software/AI, and future embodied machines.
 - Operation schemas, permissions, mutation, approval, risk, and interface metadata derive from the OmniSeed registry compiled from Omniform. OS primitives project them; never create an independent semantic action catalogue.
