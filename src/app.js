@@ -46,12 +46,21 @@ export function createOmniSeedOs({ engine, declaration, lily = new LilyResolverR
 export class LilyResolverReference {
   resolve(message = "", registry, authorization) {
     const text = message.toLowerCase();
-    const requested = text.includes("plan") || text.includes("set up") ? "generate_plan" : /\b(search|find|where|know|evidence)\b/.test(text) ? "search_company" : text.includes("capability") || text.includes("missing") || text.includes("attention") || text.includes("gap") ? "get_capability" : null;
+    const identityIntent = /who are you|what company/.test(text);
+    const locationIntent = /where.*running|show me/.test(text);
+    const capabilitiesIntent = /what capabilities|capabilities.*have/.test(text);
+    const requested = identityIntent ? "get_company_identity" : text.includes("redeploy") || text.includes("plan") || text.includes("set up") ? "generate_plan" : locationIntent || capabilitiesIntent || text.includes("capability") || text.includes("missing") || text.includes("attention") || text.includes("gap") ? "get_capability" : /\b(search|find|know|evidence)\b/.test(text) ? "search_company" : null;
     if (!requested) return { status: "clarification_required", message: "I can inspect capabilities, search company knowledge, or generate a plan. Which should I do?", operationId: null };
     const operation = registry.operations.find(item => item.id === requested && item.interfaces.includes("lily"));
     if (!operation || operation.currentAvailability !== "available") return { status: "unsupported", message: `The ${requested} operation is not currently available.`, operationId: requested, availability: operation?.currentAvailability ?? "undeclared" };
     const granted = new Set(authorization?.permissions ?? []), missing = operation.permissions.filter(permission => !granted.has(permission));
     if (!authorization?.actorId || missing.length) return { status: "unauthorized", message: `The ${requested} operation is not authorized for this actor.`, operationId: requested, missingPermissions: missing };
+    if (identityIntent) return { status: "resolved", operationId: requested, message: `I am Lily, the company steward for ${registry.company.name}. This is the ${registry.company.name} company instance.`, projection: { type: "company_identity", company: registry.company, definition: registry.definition, runtime: registry.runtime } };
+    if (locationIntent) {
+      const capability = registry.capabilities.find(item => item.id === "company_operating_environment"), vercel = registry.providers.find(item => item.providerId === "vercel"), deployment = registry.resources.find(item => item.provider === "vercel" && item.observed?.attributes?.url);
+      return { status: "resolved", operationId: requested, message: `${registry.company.name} OS is running on ${vercel?.providerId === "vercel" ? "Vercel" : "its configured systems provider"}${registry.instance?.url ? ` at ${registry.instance.url}` : ""}. The Company Operating Environment capability is ${capability?.state ?? "unknown"}.`, projection: { type: "capability_realisation", capability, provider: vercel, resource: deployment, instance: registry.instance ?? null } };
+    }
+    if (capabilitiesIntent) return { status: "resolved", operationId: requested, message: `${registry.company.name} currently has ${registry.capabilities.length} declared capabilities: ${registry.capabilities.map(item => `${item.name} (${item.state})`).join(", ")}.`, projection: { type: "capabilities", ids: registry.capabilities.map(item => item.id) } };
     if (requested === "generate_plan") return { status: "resolved", operationId: requested, message: "I can request a deterministic plan. It must be reviewed and approved before apply.", projection: { type: "operation", id: requested } };
     if (requested === "search_company") return { status: "resolved", operationId: requested, message: "I can search governed company knowledge through the configured Company Search provider.", projection: { type: "operation", id: requested } };
     const attention = registry.capabilities.filter(item => item.state !== "realised");

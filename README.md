@@ -21,3 +21,5 @@ Development may link local workspaces. Distribution consumes the versioned `@omn
 Given versioned contract artifacts, `npm run test:distribution -- <omniform.tgz> <engine.tgz>` packs OmniSeed OS, installs all three artifacts into a fresh isolated consumer, and verifies the public OS import without any repository topology.
 
 Company Search is exposed through the provider-neutral `search_company` operation and `/api/search`. Lily may select that registered operation but never calls turbopuffer or another vendor directly. Search results and provider gaps come from OmniSeed runtime truth and remain scoped to this OS instance's company.
+
+For deployment, `package:deployment` combines the versioned Omniform/OmniSeed tarballs, this OS source, and one exported company runtime snapshot into a self-contained artifact. The Vercel build validates and embeds company ID, definition hash, runtime version, and state version. `/api/company` and `/api/lily` serve that company only; the static runtime is a durable deployment snapshot and is refreshed on each provider-backed redeploy.

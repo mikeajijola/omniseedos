@@ -1,14 +1,14 @@
 {
   "name": "@omniseed/os",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Per-company operating environment for OmniSeed.",
   "type": "module",
   "exports": { ".": "./src/app.js" },
-  "scripts": { "start": "node src/server.js", "test": "node --test", "test:distribution": "node scripts/verify-distribution.mjs", "check": "npm test" },
+  "scripts": { "start": "node src/server.js", "test": "node --test", "vercel-build": "node scripts/build.mjs", "package:deployment": "node scripts/package-deployment.mjs", "test:distribution": "node scripts/verify-distribution.mjs", "check": "npm test" },
   "dependencies": {
-    "@omniseed/engine": "1.0.0-alpha.2",
-    "@omniseed/omniform": "1.0.0-alpha.2"
+    "@omniseed/engine": "1.0.0-alpha.3",
+    "@omniseed/omniform": "1.0.0-alpha.3"
   },
   "engines": { "node": ">=22" },
-  "files": ["src", "public", "README.md", "docs", "scripts"]
+  "files": ["src", "public", "api", "vercel.json", "README.md", "docs", "scripts"]
 }

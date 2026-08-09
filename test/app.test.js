@@ -41,8 +41,8 @@ test("OS projects provider gaps and enforces authorization", async t => {
 
 test("distribution manifests use versioned packages, not sibling repositories", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.2");
-  assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.2");
+  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.3");
+  assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.3");
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 

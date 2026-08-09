@@ -1,3 +1,6 @@
 node_modules/
 .omniseed/
 *.log
+.deployment/
+runtime/company-runtime.json
+dist/

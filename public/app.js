@@ -3,7 +3,7 @@ const $ = selector => document.querySelector(selector);
 const labels = { agents:"Agents",skills:"Skills",connectors:"Connectors",workflows:"Workflows",schedules:"Schedules",providers:"Providers",activity:"Activity" };
 
 async function load() {
-  registry = await fetch("/api/company").then(response => response.json());
+  registry = await fetch("/api/company").then(response => { if (!response.ok) throw new Error("runtime api unavailable"); return response.json(); }).catch(() => fetch("/runtime.json").then(response => response.json()));
   $("#company").textContent = registry.company.name;
   const realised = registry.capabilities.filter(item => item.state === "realised").length;
   $("#summary").textContent = `${realised}/${registry.capabilities.length} capabilities realised`;

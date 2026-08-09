@@ -1,0 +1,9 @@
+import { loadRuntimeSnapshot } from "../src/runtime.js";
+
+export default async function handler(request, response) {
+  if (request.method !== "GET") return response.status(405).json({ error: "Method not allowed" });
+  try { response.status(200).json(withInstance(await loadRuntimeSnapshot(), request)); }
+  catch (error) { response.status(503).json({ error: "Company runtime unavailable", detail: error.message }); }
+}
+
+function withInstance(runtime, request) { return { ...runtime, instance: { companyId: runtime.company.id, url: `https://${request.headers["x-forwarded-host"] ?? request.headers.host}`, deploymentPlatform: "vercel" } }; }
