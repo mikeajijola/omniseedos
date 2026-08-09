@@ -30,7 +30,7 @@ function project(kind) {
 }
 
 $("#nav").addEventListener("click", event => { const link=event.target.closest("a"); if(!link)return; document.querySelectorAll("nav a").forEach(a=>a.classList.remove("active")); link.classList.add("active"); const kind=link.hash.slice(1); if(kind==="home"){ $("#projection").classList.add("hidden"); $("#home").classList.remove("hidden"); } else project(kind); });
-$("#lily-form").addEventListener("submit", async event => { event.preventDefault(); const message=$("#intent").value; if(!message)return; $("#lily-response").textContent="Thinking…"; const result=await fetch("/api/lily",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message})}).then(r=>r.json()); $("#lily-response").textContent=result.message; });
+$("#lily-form").addEventListener("submit", async event => { event.preventDefault(); const message=$("#intent").value; if(!message)return; $("#lily-response").textContent="Thinking…"; const authorization={actorId:"os_user",permissions:["capability.read","plan.create","company_search.read"]}; const result=await fetch("/api/lily",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message,authorization})}).then(r=>r.json()); $("#lily-response").textContent=result.message; });
 document.querySelectorAll(".suggestions button").forEach(button => button.addEventListener("click", () => { $("#intent").value=button.textContent; $("#lily-form").requestSubmit(); }));
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c])}
 load().catch(error => { $("#lily-response").textContent = error.message; });

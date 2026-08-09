@@ -19,3 +19,5 @@ One OmniSeed OS instance represents one company by default. It consumes that com
 Development may link local workspaces. Distribution consumes the versioned `@omniseed/engine` and `@omniseed/omniform` packages; a deployed company does not require sibling source repositories. The package test guards against `file:../...` production dependencies. Licensing remains unresolved and this package declares no license metadata.
 
 Given versioned contract artifacts, `npm run test:distribution -- <omniform.tgz> <engine.tgz>` packs OmniSeed OS, installs all three artifacts into a fresh isolated consumer, and verifies the public OS import without any repository topology.
+
+Company Search is exposed through the provider-neutral `search_company` operation and `/api/search`. Lily may select that registered operation but never calls turbopuffer or another vendor directly. Search results and provider gaps come from OmniSeed runtime truth and remain scoped to this OS instance's company.
