@@ -24,7 +24,11 @@ export function createOmniSeedOs({ engine, declaration, lily = new LilyResolverR
       }
       if (request.url === "/api/lily" && request.method === "POST") {
         const body = await readJson(request), registry = await engine.inspect(declaration);
-        return json(response, 200, lily.resolve(body.message, registry));
+        return json(response, 200, lily.resolve(body.message, registry, body.authorization));
+      }
+      if (request.url === "/api/search" && request.method === "POST") {
+        const body = await readJson(request);
+        return json(response, 200, { results: await engine.invokeOperation(declaration, "search_company", { query: body.query, filters: body.filters }, body.authorization) });
       }
       if (request.method !== "GET") return json(response, 404, { error: "Not found" });
       const relative = request.url === "/" ? "index.html" : request.url.slice(1);
@@ -40,13 +44,16 @@ export function createOmniSeedOs({ engine, declaration, lily = new LilyResolverR
 
 /** Deterministic Generation 1 stub. It selects only declared, implemented, available Lily operations. */
 export class LilyResolverReference {
-  resolve(message = "", registry) {
+  resolve(message = "", registry, authorization) {
     const text = message.toLowerCase();
-    const requested = text.includes("plan") || text.includes("set up") ? "generate_plan" : text.includes("capability") || text.includes("missing") || text.includes("attention") || text.includes("gap") ? "get_capability" : null;
-    if (!requested) return { status: "clarification_required", message: "I can inspect capabilities or generate a plan. Which should I do?", operationId: null };
+    const requested = text.includes("plan") || text.includes("set up") ? "generate_plan" : /\b(search|find|where|know|evidence)\b/.test(text) ? "search_company" : text.includes("capability") || text.includes("missing") || text.includes("attention") || text.includes("gap") ? "get_capability" : null;
+    if (!requested) return { status: "clarification_required", message: "I can inspect capabilities, search company knowledge, or generate a plan. Which should I do?", operationId: null };
     const operation = registry.operations.find(item => item.id === requested && item.interfaces.includes("lily"));
     if (!operation || operation.currentAvailability !== "available") return { status: "unsupported", message: `The ${requested} operation is not currently available.`, operationId: requested, availability: operation?.currentAvailability ?? "undeclared" };
+    const granted = new Set(authorization?.permissions ?? []), missing = operation.permissions.filter(permission => !granted.has(permission));
+    if (!authorization?.actorId || missing.length) return { status: "unauthorized", message: `The ${requested} operation is not authorized for this actor.`, operationId: requested, missingPermissions: missing };
     if (requested === "generate_plan") return { status: "resolved", operationId: requested, message: "I can request a deterministic plan. It must be reviewed and approved before apply.", projection: { type: "operation", id: requested } };
+    if (requested === "search_company") return { status: "resolved", operationId: requested, message: "I can search governed company knowledge through the configured Company Search provider.", projection: { type: "operation", id: requested } };
     const attention = registry.capabilities.filter(item => item.state !== "realised");
     return { status: "resolved", operationId: requested, message: attention.length ? `${attention.length} capabilities need attention: ${attention.map(item => `${item.name} (${item.state})`).join(", ")}.` : "Every declared capability is realised.", projection: { type: "capabilities", ids: attention.map(item => item.id) } };
   }
