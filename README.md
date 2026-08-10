@@ -8,9 +8,11 @@ Every company made with OmniSeed can have its own operating environment.
 
 That is OmniSeed OS.
 
+Running a company should not require understanding the machinery underneath it.
+
 It belongs to one company. It shows the company as OmniSeed currently understands it.
 
-OmniSeed OS is not the source of truth. OmniSeed is.
+OmniSeed OS does not make up company state. It shows what OmniSeed has worked out from the company's definition, saved state, Providers, and evidence.
 
 Lily lives here. Lily is the company's steward.
 
@@ -27,6 +29,8 @@ Lily should answer from real company state. She must not guess that something ex
 ## How it fits
 
 Company as Code means a company can be described, created, checked, and changed through code.
+
+The company may use people, software, AI agents, services, or machines to do its work. Where it is safe and useful, that work can be automated.
 
 ```text
 Company as Code
@@ -90,23 +94,13 @@ OMNIFORM_PATH=../omniform/examples/company.omniform.yaml npm start
 
 Open `http://localhost:4310`.
 
-`OMNIFORM_PATH` chooses the company file. `OMNISEED_STATE` chooses the saved state file. `PORT` chooses the web port.
+`OMNIFORM_PATH` chooses the company file. `PORT` chooses the web port. More settings are explained in [`docs/architecture.md`](docs/architecture.md).
 
 The example server starts without Provider implementations. This is intentional. Missing Providers stay visible until a real deployment registers them.
 
 ## For developers
 
-Read [`docs/architecture.md`](docs/architecture.md) for process boundaries, the engine connection, Company Search, and production package rules.
-
-The current routes for company state, plans, approval, apply, search, and Lily live in `src/app.js`. The business rules behind those routes belong to OmniSeed.
-
-Production uses matching versions of `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os`. Sibling source folders are only a development convenience.
-
-Use this check when package boundaries change:
-
-```sh
-npm run test:distribution -- <omniform.tgz> <engine.tgz>
-```
+Read [`docs/architecture.md`](docs/architecture.md) for settings, web routes, the engine connection, Company Search, security boundaries, and production package checks.
 
 ## Project status
 

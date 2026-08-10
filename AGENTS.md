@@ -26,36 +26,20 @@ Do not turn the warning green. Do not call another Provider on the side. Do not 
 
 Help the founder understand the problem and reach the normal OmniSeed operation that can solve it.
 
-## For maintainers
-
-- `src/server.js` loads one Omniform company, chooses its state file, builds OmniSeed, and starts the server.
-- `src/app.js` passes web requests to public OmniSeed methods and serves the site.
-- `public/` shows the company and submits requests.
-- `LilyResolverReference` is a small example. Better language understanding must still follow operation availability and authorization.
-- `scripts/verify-distribution.mjs` checks that production packages do not depend on sibling folders.
-
-Keep these technical rules:
+## How the code protects this
 
 - Every screen and Lily answer must come from the current company view produced by OmniSeed.
 - Keep plan, approval, and apply as separate steps.
-- Pass the exact plan, approval, and actor authorization through to OmniSeed.
-- Never rebuild a plan, add approved actions, or approve work inside the OS.
+- Pass the exact plan and approval through to OmniSeed.
+- Never rebuild a plan, add actions, or approve work inside the OS.
 - Keep errors such as missing permission and an old plan different and visible.
-- Lily, UI, and API must call OmniSeed operations. They must not call Provider adapters or vendor APIs.
+- Lily, the UI, and the API must call OmniSeed operations. They must not call Providers behind OmniSeed's back.
 - Keep missing or unhealthy Providers and unavailable operations visible.
 - Keep Company Search inside one company. Keep source information on results.
 - Never send credentials, Provider secrets, raw state files, or server file paths to the browser.
 
-The dependency direction is:
-
-```text
-omniform → omniseed → omniseedos
-```
-
 [Omniform](https://github.com/mikeajijola/omniform) owns the company language. [OmniSeed](https://github.com/mikeajijola/omniseed) owns company truth and changes. OmniSeed OS must not copy those rules.
 
-Production uses compatible versioned packages. Do not commit sibling `file:` dependencies.
+When an upstream rule changes, update the affected screens, errors, examples, and tests. Keep stable IDs behind friendly labels so actions and history still point to the right thing.
 
-When an upstream contract changes, update routes, screens, error handling, examples, and package tests as needed. Keep stable IDs behind friendly labels so actions and audit history still point to the right thing.
-
-Run `npm test` after changes. Run the distribution test when dependencies, exports, packaging, or releases change. Update [`docs/architecture.md`](docs/architecture.md) when a deep technical rule changes.
+Run `npm test` after changes. The exact file roles, request rules, settings, package checks, and security boundaries live in [`docs/architecture.md`](docs/architecture.md).

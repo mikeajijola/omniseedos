@@ -2,6 +2,14 @@
 
 One process serves one company by default. The company's declaration path, state path, provider map and runtime registry are explicit deployment inputs. Every screen and Lily response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
 
+## Repository map
+
+- `src/server.js` loads one Omniform company, chooses its state file, constructs OmniSeed, and starts the server.
+- `src/app.js` maps HTTP requests to public OmniSeed methods and serves the site.
+- `public/` renders company state and submits requests.
+- `LilyResolverReference` is a deterministic reference implementation for operation selection.
+- `scripts/verify-distribution.mjs` checks the production package boundary without sibling source folders.
+
 The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. Voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary.
 
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
