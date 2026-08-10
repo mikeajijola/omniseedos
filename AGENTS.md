@@ -38,7 +38,7 @@ Help the founder understand the problem and reach the normal OmniSeed operation 
 - Keep Company Search inside one company. Keep source information on results.
 - Never send credentials, Provider secrets, raw state files, or server file paths to the browser.
 
-[Omniform](https://github.com/mikeajijola/omniform) owns the company language. [OmniSeed](https://github.com/mikeajijola/omniseed) owns company truth and changes. OmniSeed OS must not copy those rules.
+[Omniform](https://github.com/mikeajijola/omniform) owns the company language. [OmniSeed](https://github.com/mikeajijola/omniseed) works out company state and carries out changes. OmniSeed OS shows that state and must not copy those rules.
 
 When an upstream rule changes, update the affected screens, errors, examples, and tests. Keep stable IDs behind friendly labels so actions and history still point to the right thing.
 
