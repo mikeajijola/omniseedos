@@ -7,3 +7,26 @@ The browser may request a plan, but apply requires explicit approval and is dele
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
 
 Company Search is projected through the executable registry. The OS performs no provider selection, search fallback, indexing authority or result calculation. Search is company-scoped retrieval over replaceable providers, not canonical state.
+
+## HTTP boundary
+
+`src/app.js` currently exposes these routes:
+
+| Endpoint | Purpose | Authority |
+| --- | --- | --- |
+| `GET /api/company` | Read compiled company state and gaps | `engine.inspect()` |
+| `POST /api/plan` | Create and persist a proposed plan | `engine.plan()` |
+| `POST /api/approve` | Bind approval to a plan and chosen actions | `engine.approve()` |
+| `POST /api/apply` | Apply the reviewed plan | `engine.apply()` |
+| `POST /api/search` | Search governed company knowledge | registered `search_company` operation |
+| `POST /api/lily` | Resolve a message against available operations | compiled operation registry |
+
+The OS forwards authorization and exact plan/approval objects. It does not reproduce engine policy.
+
+## Process and distribution details
+
+`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `PORT` defaults to `4310`.
+
+The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
+
+Production uses matching versioned `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os` artifacts. `npm run test:distribution -- <omniform.tgz> <engine.tgz>` installs the artifacts into an isolated consumer and verifies that no sibling repository path is required.
