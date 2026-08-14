@@ -111,6 +111,14 @@ test("OS delegates the complete Company Change lifecycle to OmniSeed", async t =
   await fetch(`${base}/api/company-changes/${proposed.proposal.id}/approve`, { method: "POST", headers, body: JSON.stringify({ proposalHash: proposed.proposal.hash, authorization: owner }) });
   const applied = await fetch(`${base}/api/company-changes/${proposed.proposal.id}/apply`, { method: "POST", headers, body: JSON.stringify({ authorization: owner }) }).then(response => response.json());
   assert.equal(applied.registry.capabilities.find(item => item.id === "delivery_audit").state, "missing");
-  const listed = await fetch(`${base}/api/company-changes`, { headers: { authorization: "unused" } }).then(response => response.json());
+  assert.equal((await fetch(`${base}/api/company-changes`)).status, 403);
+  assert.equal((await fetch(`${base}/api/company-changes/${proposed.proposal.id}`)).status, 403);
+  const readHeaders = { "x-omniseed-actor-id": "owner", "x-omniseed-actor-type": "human", "x-omniseed-permissions": "company_change.read" };
+  const listed = await fetch(`${base}/api/company-changes`, { headers: readHeaders }).then(response => response.json());
   assert.equal(listed[0].status, "applied");
+  const detail = await fetch(`${base}/api/company-changes/${proposed.proposal.id}`, { headers: readHeaders }).then(response => response.json());
+  assert.equal(detail.id, proposed.proposal.id);
+  const registry = await engine.inspect(changed);
+  assert.equal("companyChanges" in registry, false);
+  assert.equal(new LilyResolverReference().resolve("Show company change proposals", registry, { actorId: "lily", permissions: ["company_change.read"] }).operationId, "inspect_company_change");
 });

@@ -1,9 +1,11 @@
-let registry;
+let registry, companyChanges = [];
 const $ = selector => document.querySelector(selector);
 const labels = { "company-changes":"Company changes",agents:"Agents",skills:"Skills",connectors:"Connectors",workflows:"Workflows",schedules:"Schedules",providers:"Providers",activity:"Activity" };
+const readHeaders = { "x-omniseed-actor-id": "os_user", "x-omniseed-actor-type": "human", "x-omniseed-permissions": "company_change.read" };
 
 async function load() {
   registry = await fetch("/api/company").then(response => response.json());
+  companyChanges = await fetch("/api/company-changes", { headers: readHeaders }).then(response => response.json());
   $("#company").textContent = registry.company.name;
   const realised = registry.capabilities.filter(item => item.state === "realised").length;
   $("#summary").textContent = `${realised}/${registry.capabilities.length} capabilities realised`;
@@ -23,7 +25,7 @@ function project(kind) {
   $("#projection-kind").textContent = "COMPANY PROJECTION"; $("#projection-title").textContent = labels[kind] ?? "Capabilities";
   let content = [];
   if (kind === "capabilities") content = registry.capabilities.map(item => card(item.name, `${item.requirements.filter(req => req.covered).length}/${item.requirements.length} requirements covered`, item.state));
-  else if (kind === "company-changes") content = registry.companyChanges.map(companyChangeCard);
+  else if (kind === "company-changes") content = companyChanges.map(companyChangeCard);
   else if (kind === "providers") content = registry.providers.map(item => card(item.family, item.providerId, item.state));
   else if (kind === "activity") content = [card("Runtime activity", "Apply and reconciliation history is retained in company state", "available")];
   else content = registry.resources.filter(item => item.family === kind).map(item => card(item.name, item.provider ?? "No provider", item.observed?.status ?? (item.deployed ? "deployed" : "desired")));

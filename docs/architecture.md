@@ -28,7 +28,8 @@ Company Search is projected through the executable registry. The OS performs no 
 | `POST /api/apply` | Apply the reviewed plan | `engine.apply()` |
 | `POST /api/search` | Search governed company knowledge | registered `search_company` operation |
 | `POST /api/lily` | Resolve a message against available operations | compiled operation registry |
-| `GET /api/company-changes` | Project persisted proposals | `engine.inspect()` |
+| `GET /api/company-changes` | List persisted proposals with read authority | `inspect_company_change` operation |
+| `GET /api/company-changes/:id` | Read one persisted proposal with read authority | `inspect_company_change` operation |
 | `POST /api/company-changes/propose` | Create an evidence-backed exact proposal | `propose_company_change` operation |
 | `POST /api/company-changes/:id/preview` | Validate and compare current/candidate definitions | `engine.previewCompanyChange()` |
 | `POST /api/company-changes/:id/approve` | Approve the exact proposal hash | `approve_company_change` operation |
@@ -37,7 +38,7 @@ Company Search is projected through the executable registry. The OS performs no 
 
 The OS forwards authorization and exact plan/approval objects. It does not reproduce engine policy.
 
-The Company Changes projection shows proposer, rationale, evidence-reference count, mutation paths, and lifecycle status from engine state. Lily may select and invoke the same proposal operation as another authorised actor. Her reasoning remains separate from referenced observations, and approval never implies automatic apply.
+The Company Changes projection shows proposer, rationale, evidence-reference count, mutation paths, and lifecycle status returned by the authorised `inspect_company_change` engine operation. Proposals are not included in the unrestricted general company projection. Lily may select and invoke the same proposal operation as another authorised actor. Her reasoning remains separate from referenced observations, and approval never implies automatic apply.
 
 ## Process and distribution details
 
