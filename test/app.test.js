@@ -87,3 +87,38 @@ test("Lily requires actor authorization before selecting available search", asyn
   const registry = await new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry().register(new LocalCompanySearchProvider()) }).inspect(search);
   assert.equal(new LilyResolverReference().resolve("Search company", registry, { actorId: "viewer", permissions: [] }).status, "unauthorized");
 });
+
+test("OS delegates the complete Company Change lifecycle to OmniSeed", async t => {
+  const changed = structuredClone(declaration);
+  changed.spec.operations.push(
+    { id: "propose_company_change", capability: "deliver_product", description: "Propose company change", input: {}, output: {}, mutation: true, permissions: ["company_change.propose"], approval: "none", interfaces: ["lily", "ui", "api", "agent", "machine"] },
+    { id: "inspect_company_change", capability: "deliver_product", description: "Inspect company change", input: {}, output: {}, mutation: false, permissions: ["company_change.read"], approval: "none", interfaces: ["lily", "ui", "api", "agent", "machine"] },
+    { id: "approve_company_change", capability: "deliver_product", description: "Approve company change", input: {}, output: {}, mutation: true, permissions: ["company_change.approve"], approval: "none", interfaces: ["ui", "api"] },
+    { id: "reject_company_change", capability: "deliver_product", description: "Reject company change", input: {}, output: {}, mutation: true, permissions: ["company_change.reject"], approval: "none", interfaces: ["ui", "api"] },
+    { id: "apply_company_change", capability: "deliver_product", description: "Apply company change", input: {}, output: {}, mutation: true, permissions: ["company_change.apply"], approval: "required", interfaces: ["ui", "api"] }
+  );
+  const initial = { version: 0, companyId: "acme", deployed: [], observed: [], evidence: [{ id: "evidence_1", type: "verified_failure" }], history: [], plans: [], companyChanges: [] };
+  const engine = new OmniSeed({ store: new MemoryStateStore(initial), providers: new ProviderRegistry() }), server = createOmniSeedOs({ engine, declaration: changed });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`, headers = { "content-type": "application/json" };
+  const lily = { actorId: "lily", actorType: "ai", permissions: ["company_change.propose"] }, owner = { actorId: "owner", actorType: "human", permissions: ["company_change.read", "company_change.approve", "company_change.apply"] };
+  const input = { reason: "Evidence suggests the desired design needs a separate audit capability.", evidence: ["evidence_1"], patch: [{ op: "add", path: "/spec/capabilities/-", value: { id: "delivery_audit", name: "Delivery Audit", requires: [{ id: "audit_delivery", primitiveFamily: "systems" }] } }] };
+  const proposed = await fetch(`${base}/api/lily`, { method: "POST", headers, body: JSON.stringify({ message: "Propose a company design change", input, authorization: lily }) }).then(response => response.json());
+  assert.equal(proposed.proposal.proposedBy.actorId, "lily");
+  assert.match(proposed.message, /has not changed the company yet/i);
+  const preview = await fetch(`${base}/api/company-changes/${proposed.proposal.id}/preview`, { method: "POST", headers, body: JSON.stringify({ authorization: owner }) }).then(response => response.json());
+  assert.deepEqual(preview.impact.capabilities.added, ["delivery_audit"]);
+  await fetch(`${base}/api/company-changes/${proposed.proposal.id}/approve`, { method: "POST", headers, body: JSON.stringify({ proposalHash: proposed.proposal.hash, authorization: owner }) });
+  const applied = await fetch(`${base}/api/company-changes/${proposed.proposal.id}/apply`, { method: "POST", headers, body: JSON.stringify({ authorization: owner }) }).then(response => response.json());
+  assert.equal(applied.registry.capabilities.find(item => item.id === "delivery_audit").state, "missing");
+  assert.equal((await fetch(`${base}/api/company-changes`)).status, 403);
+  assert.equal((await fetch(`${base}/api/company-changes/${proposed.proposal.id}`)).status, 403);
+  const readHeaders = { "x-omniseed-actor-id": "owner", "x-omniseed-actor-type": "human", "x-omniseed-permissions": "company_change.read" };
+  const listed = await fetch(`${base}/api/company-changes`, { headers: readHeaders }).then(response => response.json());
+  assert.equal(listed[0].status, "applied");
+  const detail = await fetch(`${base}/api/company-changes/${proposed.proposal.id}`, { headers: readHeaders }).then(response => response.json());
+  assert.equal(detail.id, proposed.proposal.id);
+  const registry = await engine.inspect(changed);
+  assert.equal("companyChanges" in registry, false);
+  assert.equal(new LilyResolverReference().resolve("Show company change proposals", registry, { actorId: "lily", permissions: ["company_change.read"] }).operationId, "inspect_company_change");
+});

@@ -82,6 +82,8 @@ It does not own:
 
 Lily and the interface use the same company operations as every other actor. They are friendly doors into OmniSeed, not shortcuts around it.
 
+Lily can distinguish a realisation problem from a possible company-design problem. For a design problem she may create a Company Change Proposal through the ordinary engine operation and cite existing evidence. The proposal does not change the company, approve itself, or call a Provider. OmniSeed OS presents the exact diff and governance state for human or machine review.
+
 ## Try it
 
 You need Node.js 22 or newer. With all three repositories beside each other:
