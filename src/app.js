@@ -56,11 +56,8 @@ export function createBearerIdentityResolver({ operatorToken, operator }) {
 }
 
 export function resolveDeclaredActorAuthorization(declaration, actorId) {
-  for (const family of Object.values(declaration.spec.resources ?? {})) {
-    const resource = family.find(item => item.id === actorId);
-    if (resource) return { actorId, permissions: [...(resource.spec?.authority ?? [])] };
-  }
-  return null;
+  const resource = (declaration.spec.resources?.agents ?? []).find(item => item.id === actorId);
+  return resource ? { actorId, permissions: [...(resource.spec?.authority ?? [])] } : null;
 }
 
 async function requireIdentity(authenticate, request, requiredRole) {
