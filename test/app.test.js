@@ -9,11 +9,11 @@ const declaration = parseOmniform(`apiVersion: omniform.org/v1alpha1
 kind: Company
 metadata: { id: acme, name: Acme }
 spec:
-  providers: { systems: { provider: missing_systems } }
+  providers: { connectors: { provider: missing_connectors } }
   capabilities:
     - id: deliver_product
       name: Deliver Product
-      requires: [{ id: host_app, primitiveFamily: systems }]
+      requires: [{ id: access_application, primitiveFamily: connectors }]
   operations:
     - { id: get_capability, capability: deliver_product, description: Get capability, input: {}, output: {}, mutation: false, permissions: [capability.read], approval: none, interfaces: [lily, api] }
     - { id: generate_plan, capability: deliver_product, description: Generate plan, input: {}, output: {}, mutation: false, permissions: [plan.create], approval: none, interfaces: [lily, api] }
@@ -34,15 +34,15 @@ test("OS projects provider gaps and enforces authorization", async t => {
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
   const company = await fetch(`${base}/api/company`).then(response => response.json());
-  assert.equal(company.providerGaps[0].desiredProvider, "missing_systems");
+  assert.equal(company.providerGaps[0].desiredProvider, "missing_connectors");
   const rejected = await fetch(`${base}/api/plan`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
   assert.equal(rejected.status, 403);
 });
 
 test("distribution manifests use versioned packages, not sibling repositories", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.2");
-  assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.2");
+  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.3");
+  assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.3");
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 
@@ -51,11 +51,11 @@ test("Lily and API expose provider-neutral Company Search without vendor calls",
 kind: Company
 metadata: { id: acme, name: Acme }
 spec:
-  providers: { company_search: { provider: local_company_search } }
+  providers: { memory: { provider: local_company_search } }
   capabilities:
-    - { id: company_knowledge, name: Company Knowledge, requires: [{ id: search_company_content, primitiveFamily: company_search }] }
+    - { id: company_knowledge, name: Company Knowledge, requires: [{ id: retain_company_knowledge, primitiveFamily: memory }] }
   operations:
-    - { id: search_company, capability: company_knowledge, description: Search company, input: {}, output: {}, mutation: false, permissions: [company_search.read], approval: none, interfaces: [lily, ui, api, cli, agent, machine], providerDependencies: [company_search] }
+    - { id: search_company, capability: company_knowledge, description: Search company, input: {}, output: {}, mutation: false, permissions: [company_search.read], approval: none, interfaces: [lily, ui, api, cli, agent, machine], providerDependencies: [memory] }
 `);
   const provider = new LocalCompanySearchProvider();
   await provider.index({ companyId: "acme", item: { id: "support", title: "Customer Support", content: "Customer Support uses the Support Agent and Gmail Connector.", provenance: { sourceReference: "doc://support", kind: "document" } } });
@@ -71,19 +71,19 @@ spec:
 
 test("Lily reports unavailable search operation when desired provider is missing", async () => {
   const changed = structuredClone(declaration);
-  changed.spec.providers.company_search = { provider: "turbopuffer" };
-  changed.spec.operations.push({ id: "search_company", capability: "deliver_product", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["company_search"] });
+  changed.spec.providers.memory = { provider: "turbopuffer" };
+  changed.spec.operations.push({ id: "search_company", capability: "deliver_product", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["memory"] });
   const registry = await new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() }).inspect(changed);
   const result = new LilyResolverReference().resolve("Find evidence about churn", registry, { actorId: "owner", permissions: ["company_search.read"] });
   assert.equal(result.status, "unsupported");
   assert.equal(result.availability, "provider_unavailable");
-  assert.equal(registry.providerGaps.find(item => item.primitiveFamily === "company_search").desiredProvider, "turbopuffer");
+  assert.equal(registry.providerGaps.find(item => item.primitiveFamily === "memory").desiredProvider, "turbopuffer");
 });
 
 test("Lily requires actor authorization before selecting available search", async () => {
   const search = structuredClone(declaration);
-  search.spec.providers.company_search = { provider: "local_company_search" };
-  search.spec.operations.push({ id: "search_company", capability: "deliver_product", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["company_search"] });
+  search.spec.providers.memory = { provider: "local_company_search" };
+  search.spec.operations.push({ id: "search_company", capability: "deliver_product", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["memory"] });
   const registry = await new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry().register(new LocalCompanySearchProvider()) }).inspect(search);
   assert.equal(new LilyResolverReference().resolve("Search company", registry, { actorId: "viewer", permissions: [] }).status, "unauthorized");
 });
