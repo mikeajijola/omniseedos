@@ -1,5 +1,7 @@
 # OmniSeed OS
 
+OmniSeed OS is the optional first-party human operating environment for an OmniSeed-managed company. It is neither the company nor its source of truth. It projects engine-owned instance, Capability, Realisation, plan, observation, evidence, and activity state, and it discovers the company-declared steward.
+
 OmniSeed OS is the place where one company is seen and operated.
 
 ## The idea

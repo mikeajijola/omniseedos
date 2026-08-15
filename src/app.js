@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
-export function createOmniSeedOs({ engine, declaration, lily = new LilyResolverReference() }) {
+export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient() }) {
   return createServer(async (request, response) => {
     try {
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await engine.inspect(declaration));
@@ -23,8 +23,8 @@ export function createOmniSeedOs({ engine, declaration, lily = new LilyResolverR
         return json(response, 200, await engine.apply(declaration, body.plan, body.approval, body.authorization));
       }
       if (request.url === "/api/lily" && request.method === "POST") {
-        const body = await readJson(request), registry = await engine.inspect(declaration);
-        return json(response, 200, lily.resolve(body.message, registry, body.authorization));
+        const body = await readJson(request);
+        return json(response, 200, await steward.handle({ message: body.message, engine, declaration, authorization: body.authorization }));
       }
       if (request.url === "/api/search" && request.method === "POST") {
         const body = await readJson(request);
@@ -41,6 +41,36 @@ export function createOmniSeedOs({ engine, declaration, lily = new LilyResolverR
     }
   });
 }
+
+/** Reference steward client. Reads and proposals use the same declared OmniSeed operation surface as every actor. */
+export class GovernedStewardClient {
+  async handle({ message = "", engine, declaration, authorization }) {
+    const registry = await engine.inspect(declaration);
+    const actor = registry.stewardship?.realisation?.participants.find(item => item.family === "agents");
+    if (!actor) return { status: "unsupported", message: "This company has no declared Agent participating in its stewardship realisation.", operationId: null };
+    if (authorization?.actorId !== actor.resource) return { status: "unauthorized", message: "The requesting identity is not the declared steward actor.", operationId: null };
+    const text = message.toLowerCase();
+    if (/give yourself|grant yourself|without approval|bypass/.test(text)) return { status: "refused", message: "I cannot grant myself authority or bypass the company’s approval policy.", operationId: null };
+    if (/propose|replace|change/.test(text)) {
+      const operation = registry.operations.find(item => item.id === "propose_company_change");
+      if (!operation || operation.currentAvailability !== "available") return unavailable("propose_company_change", operation);
+      return { status: "clarification_required", operationId: "propose_company_change", message: "I can submit a governed company-change proposal, but I need an exact candidate patch, reason, risks, and supporting evidence. I will not mutate desired state directly." };
+    }
+    const operation = registry.operations.find(item => item.id === "inspect_company");
+    if (!operation || operation.currentAvailability !== "available") return unavailable("inspect_company", operation);
+    const projection = await engine.invokeOperation(declaration, "inspect_company", {}, authorization);
+    if (/what company|which company|stewarding/.test(text)) return { status: "completed", operationId: "inspect_company", message: `I am stewarding ${projection.company.name} (${projection.company.id}), whose approved desired state is ${projection.instance.desiredState?.repository ?? "not Git-bound"} at revision ${projection.instance.desiredRevision ?? "unknown"}.`, projection: { instance: projection.instance } };
+    if (/partial|missing|gap|attention/.test(text)) {
+      const capabilities = projection.capabilities.filter(item => item.state !== "realised");
+      return { status: "completed", operationId: "inspect_company", message: capabilities.length ? `${capabilities.length} capabilities are not realised: ${capabilities.map(item => `${item.name} (${item.state})`).join(", ")}.` : "Every declared capability is realised.", projection: { capabilities } };
+    }
+    if (/changed|recent|activity|history/.test(text)) return { status: "completed", operationId: "inspect_company", message: projection.history.length ? `The most recent recorded event is ${projection.history.at(-1).type}.` : "OmniSeed has no evidenced runtime history for this company yet.", projection: { history: projection.history } };
+    if (/how|realis|provider|evidence/.test(text)) return { status: "completed", operationId: "inspect_company", message: `I found ${projection.realisations.length} declared realisations. The trace includes primitive participants, Provider bindings, observations, and evidence.`, projection: { realisations: projection.realisations } };
+    return { status: "completed", operationId: "inspect_company", message: `${projection.company.name} has ${projection.capabilities.length} declared capabilities and ${projection.realisations.length} named realisations.`, projection: { instance: projection.instance, capabilities: projection.capabilities } };
+  }
+}
+
+function unavailable(operationId, operation) { return { status: "unsupported", operationId, availability: operation?.currentAvailability ?? "undeclared", message: `The governed ${operationId} operation is not currently available.` }; }
 
 /** Deterministic Generation 1 stub. It selects only declared, implemented, available Lily operations. */
 export class LilyResolverReference {

@@ -1,16 +1,16 @@
 # OmniSeed OS architecture
 
-One process serves one company by default. The company's declaration path, state path, provider map and runtime registry are explicit deployment inputs. Every screen and Lily response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
+One process serves one company by default, but the company exists independently of this optional interface. The company's declaration path, state path, Git revision binding, provider map and runtime registry are explicit deployment inputs. Every screen and steward response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
 
 ## Repository map
 
 - `src/server.js` loads one Omniform company, chooses its state file, constructs OmniSeed, and starts the server.
 - `src/app.js` maps HTTP requests to public OmniSeed methods and serves the site.
 - `public/` renders company state and submits requests.
-- `LilyResolverReference` is a deterministic reference implementation for operation selection.
+- `GovernedStewardClient` is the first-party reference client for the company-declared stewardship actor. Lily is one replaceable Agent resource, not an OS subsystem.
 - `scripts/verify-distribution.mjs` checks the production package boundary without sibling source folders.
 
-The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. Voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary.
+The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. The declared steward, voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary. The UI discovers the stewardship realisation instead of hard-coding Lily.
 
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
 
@@ -33,7 +33,7 @@ The OS forwards authorization and exact plan/approval objects. It does not repro
 
 ## Process and distribution details
 
-`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `PORT` defaults to `4310`.
+`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `OMNISEED_DESIRED_REVISION`, `OMNISEED_ENVIRONMENT`, `OMNISEED_DEPLOYMENT_ID`, and `OMNISEED_DEPLOYMENT_PROVIDER` bind the replaceable OS deployment to the canonical company revision without defining company identity. `PORT` defaults to `4310`.
 
 The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
 
