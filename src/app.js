@@ -8,7 +8,12 @@ const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
 export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, stewardAuthorization = null }) {
-  return createServer(async (request, response) => {
+  return createServer(createOmniSeedOsHandler({ engine, declaration, steward, authenticate, stewardAuthorization }));
+}
+
+/** Request handler shared by the long-lived Node server and serverless adapters. */
+export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, stewardAuthorization = null }) {
+  return async (request, response) => {
     try {
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await engine.inspect(declaration));
       if (request.url === "/api/plan" && request.method === "POST") {
@@ -42,7 +47,7 @@ export function createOmniSeedOs({ engine, declaration, steward = new GovernedSt
       if (error.code === "ENOENT") return json(response, 404, { error: "Not found" });
       json(response, error.code === "authorization_denied" ? 403 : error.code === "plan_stale" ? 409 : 400, { code: error.code ?? "error", error: error.message, details: error.details });
     }
-  });
+  };
 }
 
 export function createBearerIdentityResolver({ operatorToken, operator }) {

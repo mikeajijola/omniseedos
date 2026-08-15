@@ -37,4 +37,12 @@ The OS forwards exact plan/approval objects. It does not reproduce engine policy
 
 The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
 
+## Vercel serverless adapter
+
+`api/index.js` is a thin Vercel entry point over the same HTTP handler used by the Node server. It fetches a company definition from `OMNISEED_COMPANY_DEFINITION_URL`, which must contain the immutable `OMNISEED_DESIRED_REVISION`, and rejects declarations without a PR-governed canonical repository. Company identity comes from that declaration, never the hostname.
+
+Serverless runtime state cannot use the process filesystem. `DurableHttpStateStore` binds OmniSeed to an authenticated, company-scoped HTTP state service with optimistic version checks. `OMNISEED_STATE_TOKEN` remains server-side. The adapter refuses to start if durable state, operator authentication, desired revision, or steward identity is missing.
+
+`SemanticStewardClient` is the replaceable Agent-runtime hook. A semantic runtime receives only company ID, actor ID, the operator message, and prior governed tool results. Requested tools are invoked by the OS through `engine.invokeOperation` using authority resolved from the declared Agent; the runtime receives no Provider credential and cannot grant itself permissions.
+
 Production uses matching versioned `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os` artifacts. `npm run test:distribution -- <omniform.tgz> <engine.tgz>` installs the artifacts into an isolated consumer and verifies that no sibling repository path is required.

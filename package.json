@@ -10,5 +10,5 @@
     "@omniseed/omniform": "1.0.0-alpha.4"
   },
   "engines": { "node": ">=22" },
-  "files": ["src", "public", "README.md", "docs", "scripts"]
+  "files": ["src", "public", "api", "vercel.json", "README.md", "docs", "scripts"]
 }
