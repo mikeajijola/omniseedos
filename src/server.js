@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { loadOmniform } from "@omniseed/omniform";
 import { JsonStateStore, OmniSeed, ProviderRegistry } from "@omniseed/engine";
-import { createOmniSeedOs } from "./app.js";
+import { createBearerIdentityResolver, createOmniSeedOs, resolveDeclaredActorAuthorization } from "./app.js";
 
 const declarationPath = resolve(process.env.OMNIFORM_PATH ?? "../omniform/examples/omniseed/omniform.yaml");
 const statePath = resolve(process.env.OMNISEED_STATE ?? ".omniseed/state.json");
@@ -15,4 +15,17 @@ const declaration = await loadOmniform(declarationPath);
 // Provider implementations are installed and registered by the company deployment.
 // An empty registry is truthful: desired providers appear as unavailable gaps.
 const engine = new OmniSeed({ store: new JsonStateStore(statePath), providers: new ProviderRegistry(), binding });
-createOmniSeedOs({ engine, declaration }).listen(port, () => console.log(`OmniSeed OS for ${declaration.metadata.name} listening at http://localhost:${port}`));
+const authenticate = createBearerIdentityResolver({
+  operatorToken: process.env.OMNISEED_OPERATOR_TOKEN,
+  operator: {
+    role: "operator",
+    authorization: {
+      actorId: process.env.OMNISEED_OPERATOR_ACTOR_ID ?? "operator",
+      permissions: ["company.read", "capability.read", "plan.create", "plan.approve", "plan.apply", "company_search.read", "company_change.propose", "company_change.read"]
+    }
+  }
+});
+const stewardAuthorization = process.env.OMNISEED_STEWARD_ACTOR_ID
+  ? resolveDeclaredActorAuthorization(declaration, process.env.OMNISEED_STEWARD_ACTOR_ID)
+  : null;
+createOmniSeedOs({ engine, declaration, authenticate, stewardAuthorization }).listen(port, () => console.log(`OmniSeed OS for ${declaration.metadata.name} listening at http://localhost:${port}`));

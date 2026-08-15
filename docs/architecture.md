@@ -29,11 +29,11 @@ Company Search is projected as the ordinary `company_search` Capability and gove
 | `POST /api/search` | Search governed company knowledge | registered `search_company` operation |
 | `POST /api/lily` | Resolve a message against available operations | compiled operation registry |
 
-The OS forwards authorization and exact plan/approval objects. It does not reproduce engine policy.
+The OS forwards exact plan/approval objects. It does not reproduce engine policy. Authorization is derived on the server from an authenticated identity; authorization objects in request bodies are ignored. GET /api/company is the sole anonymous route and is read-only. The reference deployment uses a minimum 32-character bearer token (OMNISEED_OPERATOR_TOKEN) as a temporary operator authentication mechanism. A production identity-provider adapter can replace that resolver without changing OmniSeed operations. Steward permissions are resolved from the declared Agent resource's authority instead of runtime defaults.
 
 ## Process and distribution details
 
-`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `OMNISEED_DESIRED_REVISION`, `OMNISEED_ENVIRONMENT`, `OMNISEED_DEPLOYMENT_ID`, and `OMNISEED_DEPLOYMENT_PROVIDER` bind the replaceable OS deployment to the canonical company revision without defining company identity. `PORT` defaults to `4310`.
+`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `OMNISEED_DESIRED_REVISION`, `OMNISEED_ENVIRONMENT`, `OMNISEED_DEPLOYMENT_ID`, and `OMNISEED_DEPLOYMENT_PROVIDER` bind the replaceable OS deployment to the canonical company revision without defining company identity. `OMNISEED_OPERATOR_TOKEN` and `OMNISEED_OPERATOR_ACTOR_ID` configure the temporary human authentication boundary. `OMNISEED_STEWARD_ACTOR_ID` binds the server-side steward identity; its permissions are fixed by the runtime and cannot be supplied by the browser. `PORT` defaults to `4310`.
 
 The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
 

@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseOmniform } from "@omniseed/omniform";
 import { LocalCompanySearchProvider, MemoryStateStore, OmniSeed, ProviderRegistry, ReferenceProvider } from "@omniseed/engine";
-import { createOmniSeedOs, GovernedStewardClient, LilyResolverReference } from "../src/app.js";
+import { createBearerIdentityResolver, createOmniSeedOs, GovernedStewardClient, LilyResolverReference, resolveDeclaredActorAuthorization } from "../src/app.js";
+
+const operatorToken = "test-operator-token-that-is-at-least-32-characters";
+const operatorIdentity = {
+  role: "operator",
+  authorization: { actorId: "owner", permissions: ["company.read", "capability.read", "plan.create", "plan.approve", "plan.apply", "company_search.read"] }
+};
+const authenticate = createBearerIdentityResolver({ operatorToken, operator: operatorIdentity });
+const authorizedHeaders = { "content-type": "application/json", authorization: `Bearer ${operatorToken}` };
 
 const declaration = parseOmniform(`apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -46,6 +54,12 @@ test("distribution manifests use versioned packages, not sibling repositories", 
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 
+test("browser never claims an actor or permission set", async () => {
+  const browser = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.doesNotMatch(browser, /JSON\.stringify\([^)]*authorization|permissions\s*:/);
+  assert.match(browser, /authorization.*Bearer/);
+});
+
 test("Lily and API expose provider-neutral Company Search without vendor calls", async t => {
   const searchDeclaration = parseOmniform(`apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -63,9 +77,9 @@ spec:
   const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry().register(provider).register(sources) });
   const registry = await engine.inspect(searchDeclaration);
   assert.equal(new LilyResolverReference().resolve("What do we know about customer support?", registry, { actorId: "owner", permissions: ["company_search.read"] }).operationId, "search_company");
-  const server = createOmniSeedOs({ engine, declaration: searchDeclaration });
+  const server = createOmniSeedOs({ engine, declaration: searchDeclaration, authenticate });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
-  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/search`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: "customer support", authorization: { actorId: "owner", permissions: ["company_search.read"] } }) });
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/search`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ query: "customer support" }) });
   const body = await response.json();
   assert.equal(body.results[0].sourceReference, "doc://support");
 });
@@ -111,4 +125,43 @@ test("declared steward resolves company context and reads through an ordinary Om
   assert.equal(refused.status, "refused");
   const impostor = await client.handle({ message: "What company?", engine, declaration: canonical, authorization: { actorId: "eve", permissions: ["company.read"] } });
   assert.equal(impostor.status, "unauthorized");
+});
+
+test("server derives operator authority and ignores browser-supplied permissions", async t => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const server = createOmniSeedOs({ engine, declaration, authenticate });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const forged = { authorization: { actorId: "attacker", permissions: ["plan.apply", "governance.mutate", "*"] } };
+  const anonymous = await fetch(`${base}/api/plan`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(forged) });
+  assert.equal(anonymous.status, 403);
+  const authenticated = await fetch(`${base}/api/plan`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify(forged) });
+  assert.notEqual(authenticated.status, 403);
+});
+
+test("Lily uses the server-bound steward identity, not a browser identity", async t => {
+  const canonical = structuredClone(declaration);
+  canonical.spec.governance = { desiredState: { repository: "https://github.com/example/acme-company.git", branch: "main", path: "omniform.yaml", changeMode: "pull_request" } };
+  canonical.spec.providers.agents = { provider: "agent_runtime" };
+  canonical.spec.capabilities.push({ id: "company_stewardship", name: "Company Stewardship", requires: [{ id: "steward_company", primitiveFamily: "agents" }], realisations: ["primary_steward"] });
+  canonical.spec.resources = { agents: [{ id: "lily", name: "Lily", offers: ["steward_company"], spec: { kind: "ai_agent" } }] };
+  canonical.spec.realisations = [{ id: "primary_steward", name: "Primary steward", capability: "company_stewardship", participants: [{ resource: "lily", role: "steward", supplies: ["steward_company"] }] }];
+  canonical.spec.stewardship = { capability: "company_stewardship", realisation: "primary_steward" };
+  canonical.spec.operations.push({ id: "inspect_company", capability: "company_stewardship", description: "Inspect", input: {}, output: {}, mutation: false, permissions: ["company.read"], approval: "none", interfaces: ["lily"] });
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const server = createOmniSeedOs({ engine, declaration: canonical, authenticate, stewardAuthorization: { actorId: "lily", permissions: ["company.read"] } });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const anonymous = await fetch(`${base}/api/lily`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "What company?", authorization: { actorId: "lily", permissions: ["company.read"] } }) });
+  assert.equal(anonymous.status, 403);
+  const answer = await fetch(`${base}/api/lily`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message: "What company?", authorization: { actorId: "eve", permissions: ["*"] } }) }).then(response => response.json());
+  assert.equal(answer.status, "completed");
+  assert.match(answer.message, /Acme/);
+});
+
+test("steward authority comes from the declared actor resource", () => {
+  const canonical = structuredClone(declaration);
+  canonical.spec.resources = { agents: [{ id: "lily", spec: { authority: ["company.read", "company_change.propose"] } }] };
+  assert.deepEqual(resolveDeclaredActorAuthorization(canonical, "lily"), { actorId: "lily", permissions: ["company.read", "company_change.propose"] });
+  assert.equal(resolveDeclaredActorAuthorization(canonical, "eve"), null);
 });

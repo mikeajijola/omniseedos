@@ -1,4 +1,5 @@
 let registry;
+let operatorToken = "";
 const $ = selector => document.querySelector(selector);
 const labels = { capabilities:"Capabilities",realisations:"Realisations",plan:"Plan",observe:"Observe",activity:"Activity" };
 
@@ -33,7 +34,7 @@ function project(kind) {
 }
 
 $("#nav").addEventListener("click", event => { const link=event.target.closest("a"); if(!link)return; document.querySelectorAll("nav a").forEach(a=>a.classList.remove("active")); link.classList.add("active"); const kind=link.hash.slice(1); if(kind==="home"){ $("#projection").classList.add("hidden"); $("#home").classList.remove("hidden"); } else project(kind); });
-$("#lily-form").addEventListener("submit", async event => { event.preventDefault(); const message=$("#intent").value; if(!message)return; $("#lily-response").textContent="Thinking…"; const actorId=registry.stewardship?.realisation?.participants.find(item=>item.family==="agents")?.resource; const authorization={actorId,permissions:["company.read","capability.read","plan.create","company_change.propose","company_change.read"]}; const result=await fetch("/api/lily",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message,authorization})}).then(r=>r.json()); $("#lily-response").textContent=result.message; });
+$("#lily-form").addEventListener("submit", async event => { event.preventDefault(); const message=$("#intent").value; if(!message)return; if(!operatorToken) operatorToken=window.prompt("Enter your operator access token. It is kept only in this page until you close or reload it.") ?? ""; if(!operatorToken){$("#lily-response").textContent="Operator authentication is required to invoke the steward.";return;} $("#lily-response").textContent="Thinking…"; const response=await fetch("/api/lily",{method:"POST",headers:{"content-type":"application/json","authorization":`Bearer ${operatorToken}`},body:JSON.stringify({message})}); const result=await response.json(); if(response.status===403) operatorToken=""; $("#lily-response").textContent=result.message ?? result.error; });
 document.querySelectorAll(".suggestions button").forEach(button => button.addEventListener("click", () => { $("#intent").value=button.textContent; $("#lily-form").requestSubmit(); }));
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c])}
 load().catch(error => { $("#lily-response").textContent = error.message; });

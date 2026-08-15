@@ -2,33 +2,36 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
-export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient() }) {
+export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, stewardAuthorization = null }) {
   return createServer(async (request, response) => {
     try {
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await engine.inspect(declaration));
       if (request.url === "/api/plan" && request.method === "POST") {
         const body = await readJson(request);
-        return json(response, 200, await engine.plan(declaration, body.authorization));
+        return json(response, 200, await engine.plan(declaration, await requireIdentity(authenticate, request, "operator")));
       }
       if (request.url === "/api/approve" && request.method === "POST") {
         const body = await readJson(request);
-        return json(response, 200, await engine.approve(body.plan, body.approvedActionIds, body.authorization));
+        return json(response, 200, await engine.approve(body.plan, body.approvedActionIds, await requireIdentity(authenticate, request, "operator")));
       }
       if (request.url === "/api/apply" && request.method === "POST") {
         const body = await readJson(request);
-        return json(response, 200, await engine.apply(declaration, body.plan, body.approval, body.authorization));
+        return json(response, 200, await engine.apply(declaration, body.plan, body.approval, await requireIdentity(authenticate, request, "operator")));
       }
       if (request.url === "/api/lily" && request.method === "POST") {
         const body = await readJson(request);
-        return json(response, 200, await steward.handle({ message: body.message, engine, declaration, authorization: body.authorization }));
+        await requireIdentity(authenticate, request, "operator");
+        if (!stewardAuthorization) throw authError("The declared steward has no server-side runtime identity.");
+        return json(response, 200, await steward.handle({ message: body.message, engine, declaration, authorization: stewardAuthorization }));
       }
       if (request.url === "/api/search" && request.method === "POST") {
         const body = await readJson(request);
-        return json(response, 200, { results: await engine.invokeOperation(declaration, "search_company", { query: body.query, filters: body.filters }, body.authorization) });
+        return json(response, 200, { results: await engine.invokeOperation(declaration, "search_company", { query: body.query, filters: body.filters }, await requireIdentity(authenticate, request, "operator")) });
       }
       if (request.method !== "GET") return json(response, 404, { error: "Not found" });
       const relative = request.url === "/" ? "index.html" : request.url.slice(1);
@@ -41,6 +44,38 @@ export function createOmniSeedOs({ engine, declaration, steward = new GovernedSt
     }
   });
 }
+
+export function createBearerIdentityResolver({ operatorToken, operator }) {
+  const configured = typeof operatorToken === "string" && operatorToken.length >= 32;
+  return async request => {
+    const value = request.headers.authorization ?? "";
+    const supplied = value.startsWith("Bearer ") ? value.slice(7) : "";
+    if (!configured || !secureEqual(supplied, operatorToken)) return null;
+    return structuredClone(operator);
+  };
+}
+
+export function resolveDeclaredActorAuthorization(declaration, actorId) {
+  for (const family of Object.values(declaration.spec.resources ?? {})) {
+    const resource = family.find(item => item.id === actorId);
+    if (resource) return { actorId, permissions: [...(resource.spec?.authority ?? [])] };
+  }
+  return null;
+}
+
+async function requireIdentity(authenticate, request, requiredRole) {
+  const identity = await authenticate(request);
+  if (!identity || identity.role !== requiredRole || !identity.authorization?.actorId) throw authError("Authentication is required.");
+  return identity.authorization;
+}
+
+function secureEqual(left, right) {
+  const a = Buffer.from(left), b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+const anonymousOnly = async () => null;
+const authError = message => Object.assign(new Error(message), { code: "authorization_denied" });
 
 /** Reference steward client. Reads and proposals use the same declared OmniSeed operation surface as every actor. */
 export class GovernedStewardClient {
