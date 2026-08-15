@@ -53,7 +53,7 @@ export class LilyResolverReference {
     const granted = new Set(authorization?.permissions ?? []), missing = operation.permissions.filter(permission => !granted.has(permission));
     if (!authorization?.actorId || missing.length) return { status: "unauthorized", message: `The ${requested} operation is not authorized for this actor.`, operationId: requested, missingPermissions: missing };
     if (requested === "generate_plan") return { status: "resolved", operationId: requested, message: "I can request a deterministic plan. It must be reviewed and approved before apply.", projection: { type: "operation", id: requested } };
-    if (requested === "search_company") return { status: "resolved", operationId: requested, message: "I can search governed company knowledge through the configured Company Search provider.", projection: { type: "operation", id: requested } };
+    if (requested === "search_company") return { status: "resolved", operationId: requested, message: "I can invoke the governed Company Search capability through its configured primitive realisation.", projection: { type: "operation", id: requested } };
     const attention = registry.capabilities.filter(item => item.state !== "realised");
     return { status: "resolved", operationId: requested, message: attention.length ? `${attention.length} capabilities need attention: ${attention.map(item => `${item.name} (${item.state})`).join(", ")}.` : "Every declared capability is realised.", projection: { type: "capabilities", ids: attention.map(item => item.id) } };
   }

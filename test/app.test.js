@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseOmniform } from "@omniseed/omniform";
-import { LocalCompanySearchProvider, MemoryStateStore, OmniSeed, ProviderRegistry } from "@omniseed/engine";
+import { LocalCompanySearchProvider, MemoryStateStore, OmniSeed, ProviderRegistry, ReferenceProvider } from "@omniseed/engine";
 import { createOmniSeedOs, LilyResolverReference } from "../src/app.js";
 
 const declaration = parseOmniform(`apiVersion: omniform.org/v1alpha1
@@ -51,15 +51,16 @@ test("Lily and API expose provider-neutral Company Search without vendor calls",
 kind: Company
 metadata: { id: acme, name: Acme }
 spec:
-  providers: { memory: { provider: local_company_search } }
+  providers: { skills: { provider: local_company_search }, connectors: { provider: local_information_sources } }
   capabilities:
-    - { id: company_knowledge, name: Company Knowledge, requires: [{ id: retain_company_knowledge, primitiveFamily: memory }] }
+    - { id: company_search, name: Company Search, requires: [{ id: semantic_search, primitiveFamily: skills }, { id: access_company_sources, primitiveFamily: connectors }] }
   operations:
-    - { id: search_company, capability: company_knowledge, description: Search company, input: {}, output: {}, mutation: false, permissions: [company_search.read], approval: none, interfaces: [lily, ui, api, cli, agent, machine], providerDependencies: [memory] }
+    - { id: search_company, capability: company_search, description: Search company, input: {}, output: {}, mutation: false, permissions: [company_search.read], approval: none, interfaces: [lily, ui, api, cli, agent, machine], providerDependencies: [skills, connectors] }
 `);
   const provider = new LocalCompanySearchProvider();
   await provider.index({ companyId: "acme", item: { id: "support", title: "Customer Support", content: "Customer Support uses the Support Agent and Gmail Connector.", provenance: { sourceReference: "doc://support", kind: "document" } } });
-  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry().register(provider) });
+  const sources = new ReferenceProvider({ id: "local_information_sources", families: ["connectors"], offerings: [{ family: "connectors", id: "access_company_sources" }] });
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry().register(provider).register(sources) });
   const registry = await engine.inspect(searchDeclaration);
   assert.equal(new LilyResolverReference().resolve("What do we know about customer support?", registry, { actorId: "owner", permissions: ["company_search.read"] }).operationId, "search_company");
   const server = createOmniSeedOs({ engine, declaration: searchDeclaration });
@@ -71,19 +72,21 @@ spec:
 
 test("Lily reports unavailable search operation when desired provider is missing", async () => {
   const changed = structuredClone(declaration);
-  changed.spec.providers.memory = { provider: "turbopuffer" };
-  changed.spec.operations.push({ id: "search_company", capability: "deliver_product", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["memory"] });
+  changed.spec.providers.skills = { provider: "missing_search_skills" };
+  changed.spec.capabilities.push({ id: "company_search", name: "Company Search", requires: [{ id: "semantic_search", primitiveFamily: "skills" }] });
+  changed.spec.operations.push({ id: "search_company", capability: "company_search", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["skills"] });
   const registry = await new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() }).inspect(changed);
   const result = new LilyResolverReference().resolve("Find evidence about churn", registry, { actorId: "owner", permissions: ["company_search.read"] });
   assert.equal(result.status, "unsupported");
   assert.equal(result.availability, "provider_unavailable");
-  assert.equal(registry.providerGaps.find(item => item.primitiveFamily === "memory").desiredProvider, "turbopuffer");
+  assert.equal(registry.providerGaps.find(item => item.primitiveFamily === "skills").desiredProvider, "missing_search_skills");
 });
 
 test("Lily requires actor authorization before selecting available search", async () => {
   const search = structuredClone(declaration);
-  search.spec.providers.memory = { provider: "local_company_search" };
-  search.spec.operations.push({ id: "search_company", capability: "deliver_product", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["memory"] });
+  search.spec.providers.skills = { provider: "local_company_search" };
+  search.spec.capabilities.push({ id: "company_search", name: "Company Search", requires: [{ id: "semantic_search", primitiveFamily: "skills" }] });
+  search.spec.operations.push({ id: "search_company", capability: "company_search", description: "Search", input: {}, output: {}, mutation: false, permissions: ["company_search.read"], approval: "none", interfaces: ["lily"], providerDependencies: ["skills"] });
   const registry = await new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry().register(new LocalCompanySearchProvider()) }).inspect(search);
   assert.equal(new LilyResolverReference().resolve("Search company", registry, { actorId: "viewer", permissions: [] }).status, "unauthorized");
 });

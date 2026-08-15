@@ -14,7 +14,7 @@ The browser may request a plan, but apply requires explicit approval and is dele
 
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
 
-Company Search is projected through the executable registry. The OS performs no provider selection, search fallback, indexing authority or result calculation. Search is company-scoped retrieval over replaceable providers, not canonical state.
+Company Search is projected as the ordinary `company_search` Capability and governed `search_company` operation from the executable registry. The OS may display the capability realisation resolved by OmniSeed, but performs no Provider selection, composition, fallback, indexing authority, or result calculation. Search is company-scoped retrieval over replaceable primitive Providers, not a memory feature, special Provider class, or canonical state.
 
 ## HTTP boundary
 
