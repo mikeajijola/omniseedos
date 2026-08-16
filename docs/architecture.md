@@ -1,16 +1,16 @@
 # OmniSeed OS architecture
 
-One process serves one company by default. The company's declaration path, state path, provider map and runtime registry are explicit deployment inputs. Every screen and Lily response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
+One process serves one company by default, but the company exists independently of this optional interface. The company's declaration path, state path, Git revision binding, provider map and runtime registry are explicit deployment inputs. Every screen and steward response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
 
 ## Repository map
 
 - `src/server.js` loads one Omniform company, chooses its state file, constructs OmniSeed, and starts the server.
 - `src/app.js` maps HTTP requests to public OmniSeed methods and serves the site.
 - `public/` renders company state and submits requests.
-- `LilyResolverReference` is a deterministic reference implementation for operation selection.
+- `GovernedStewardClient` is the first-party reference client for the company-declared stewardship actor. Lily is one replaceable Agent resource, not an OS subsystem.
 - `scripts/verify-distribution.mjs` checks the production package boundary without sibling source folders.
 
-The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. Voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary.
+The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. The declared steward, voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary. The UI discovers the stewardship realisation instead of hard-coding Lily.
 
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
 
@@ -29,12 +29,20 @@ Company Search is projected as the ordinary `company_search` Capability and gove
 | `POST /api/search` | Search governed company knowledge | registered `search_company` operation |
 | `POST /api/lily` | Resolve a message against available operations | compiled operation registry |
 
-The OS forwards authorization and exact plan/approval objects. It does not reproduce engine policy.
+The OS forwards exact plan/approval objects. It does not reproduce engine policy. Authorization is derived on the server from an authenticated identity; authorization objects in request bodies are ignored. GET /api/company is the sole anonymous route and is read-only. The reference deployment uses a minimum 32-character bearer token (OMNISEED_OPERATOR_TOKEN) as a temporary operator authentication mechanism. A production identity-provider adapter can replace that resolver without changing OmniSeed operations. Steward permissions are resolved from the declared Agent resource's authority instead of runtime defaults.
 
 ## Process and distribution details
 
-`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `PORT` defaults to `4310`.
+`OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `OMNISEED_DESIRED_REVISION`, `OMNISEED_ENVIRONMENT`, `OMNISEED_DEPLOYMENT_ID`, and `OMNISEED_DEPLOYMENT_PROVIDER` bind the replaceable OS deployment to the canonical company revision without defining company identity. `OMNISEED_OPERATOR_TOKEN` and `OMNISEED_OPERATOR_ACTOR_ID` configure the temporary human authentication boundary. `OMNISEED_STEWARD_ACTOR_ID` binds the server-side steward identity; its permissions are fixed by the runtime and cannot be supplied by the browser. `PORT` defaults to `4310`.
 
 The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
+
+## Vercel serverless adapter
+
+`api/index.js` is a thin Vercel entry point over the same HTTP handler used by the Node server. It fetches a company definition from `OMNISEED_COMPANY_DEFINITION_URL`, which must contain the immutable `OMNISEED_DESIRED_REVISION`, and rejects declarations without a PR-governed canonical repository. Company identity comes from that declaration, never the hostname.
+
+Serverless runtime state cannot use the process filesystem. `DurableHttpStateStore` binds OmniSeed to an authenticated, company-scoped HTTP state service with optimistic version checks. `OMNISEED_STATE_TOKEN` remains server-side. The adapter refuses to start if durable state, operator authentication, desired revision, or steward identity is missing.
+
+`SemanticStewardClient` is the replaceable Agent-runtime hook. A semantic runtime receives only company ID, actor ID, the operator message, and prior governed tool results. Requested tools are invoked by the OS through `engine.invokeOperation` using authority resolved from the declared Agent; the runtime receives no Provider credential and cannot grant itself permissions.
 
 Production uses matching versioned `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os` artifacts. `npm run test:distribution -- <omniform.tgz> <engine.tgz>` installs the artifacts into an isolated consumer and verifies that no sibling repository path is required.
