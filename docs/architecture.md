@@ -2,6 +2,8 @@
 
 One process serves one company by default, but the company exists independently of this optional interface. The company's declaration path, state path, Git revision binding, provider map and runtime registry are explicit deployment inputs. Every screen and steward response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
 
+The UI follows the ecosystem's authoritative [Provider semantics](https://github.com/mikeajijola/omniseed-ecosystem/blob/main/docs/provider-semantics.md). It labels the supplying organisation as Provider and presents products, services, frameworks, SDKs, and features as implementation detail beneath that Provider. Thus Lily is an Agent implemented using Eve with Vercel as Provider; Eve is not a Provider.
+
 ## Repository map
 
 - `src/server.js` loads one Omniform company, chooses its state file, constructs OmniSeed, and starts the server.

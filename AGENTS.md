@@ -13,6 +13,7 @@ Read these rules before you learn the code.
 - Missing things should stay visible.
 - Do not hide problems with fake fallbacks.
 - Never expose secrets.
+- Display Provider organisations separately from the products/services/frameworks used beneath them. Never present Eve, Functions, Actions, or another product as a Provider.
 - Keep the interface simple.
 - A founder should not need to understand the architecture to use the company.
 
