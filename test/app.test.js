@@ -139,6 +139,20 @@ test("server derives operator authority and ignores browser-supplied permissions
   assert.notEqual(authenticated.status, 403);
 });
 
+test("governed operation endpoint binds the authenticated Agent and ignores caller authority", async t => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const agentToken = "agent-operation-token-at-least-thirty-two-characters";
+  const operationAuthenticate = createBearerIdentityResolver({ operatorToken: agentToken, operator: { role: "agent", authorization: { actorId: "lily", permissions: ["capability.read"] } } });
+  const server = createOmniSeedOs({ engine, declaration, operationAuthenticate });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const endpoint = `http://127.0.0.1:${server.address().port}/v1/companies/acme/operations/get_capability:invoke`;
+  const anonymous = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  assert.equal(anonymous.status, 403);
+  const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${agentToken}` }, body: JSON.stringify({ input: { capabilityId: "deliver_product" }, actor: { actorId: "attacker", permissions: ["*"] } }) });
+  assert.equal(response.status, 200);
+  const body = await response.json(); assert.equal(body.ok, true); assert.equal(body.result.id, "deliver_product");
+});
+
 test("Lily uses the server-bound steward identity, not a browser identity", async t => {
   const canonical = structuredClone(declaration);
   canonical.spec.governance = { desiredState: { repository: "https://github.com/example/acme-company.git", branch: "main", path: "omniform.yaml", changeMode: "pull_request" } };

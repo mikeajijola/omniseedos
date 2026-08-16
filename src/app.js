@@ -7,15 +7,22 @@ import { timingSafeEqual } from "node:crypto";
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
-export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, stewardAuthorization = null }) {
-  return createServer(createOmniSeedOsHandler({ engine, declaration, steward, authenticate, stewardAuthorization }));
+export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null }) {
+  return createServer(createOmniSeedOsHandler({ engine, declaration, steward, authenticate, operationAuthenticate, stewardAuthorization }));
 }
 
 /** Request handler shared by the long-lived Node server and serverless adapters. */
-export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, stewardAuthorization = null }) {
+export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null }) {
   return async (request, response) => {
     try {
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await engine.inspect(declaration));
+      const operationRoute = /^\/v1\/companies\/([^/]+)\/operations\/([^/:]+):invoke$/.exec(request.url);
+      if (operationRoute && request.method === "POST") {
+        if (decodeURIComponent(operationRoute[1]) !== declaration.metadata.id) return json(response, 404, { ok: false, code: "company_not_found", error: "Company is not served by this runtime." });
+        const body = await readJson(request), authorization = await requireIdentity(operationAuthenticate, request, "agent");
+        const result = await engine.invokeOperation(declaration, decodeURIComponent(operationRoute[2]), body.input ?? {}, authorization);
+        return json(response, 200, { ok: true, result });
+      }
       if (request.url === "/api/plan" && request.method === "POST") {
         const body = await readJson(request);
         return json(response, 200, await engine.plan(declaration, await requireIdentity(authenticate, request, "operator")));
