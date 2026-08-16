@@ -45,6 +45,8 @@ The reference server constructs an empty Provider registry. Desired Providers th
 
 Serverless runtime state cannot use the process filesystem. `DurableHttpStateStore` binds OmniSeed to an authenticated, company-scoped HTTP state service with optimistic version checks. `OMNISEED_STATE_TOKEN` remains server-side. The adapter refuses to start if durable state, operator authentication, desired revision, or steward identity is missing.
 
+The Vercel adapter exposes that authenticated service at `/api/state/companies/{companyId}/state` when `DATABASE_URL` is bound to durable PostgreSQL. Writes use an atomic version predicate and return `412` on stale compare-and-swap attempts. The database, not the Vercel function filesystem, retains proposals, Activity, observations, and evidence across cold starts and deployments.
+
 `SemanticStewardClient` is the replaceable Agent-runtime hook. A semantic runtime receives only company ID, actor ID, the operator message, and prior governed tool results. Requested tools are invoked by the OS through `engine.invokeOperation` using authority resolved from the declared Agent; the runtime receives no Provider credential and cannot grant itself permissions.
 
 Production uses matching versioned `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os` artifacts. `npm run test:distribution -- <omniform.tgz> <engine.tgz>` installs the artifacts into an isolated consumer and verifies that no sibling repository path is required.
