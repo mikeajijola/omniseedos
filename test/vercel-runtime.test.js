@@ -11,7 +11,7 @@ spec:
   governance:
     desiredState: { repository: https://github.com/mikeajijola/omniseed-ecosystem-company.git, branch: main, path: omniform.yaml, changeMode: pull_request }
   stewardship: { capability: stewardship, realisation: lily_stewardship }
-  providers: { agents: { provider: eve }, connectors: { provider: vercel_interface } }
+  providers: { agents: { provider: vercel }, connectors: { provider: vercel } }
   capabilities:
     - { id: stewardship, name: Steward Ecosystem, requires: [{ id: agency, primitiveFamily: agents }], realisations: [lily_stewardship] }
   realisations:
@@ -76,7 +76,7 @@ test("Vercel runtime binds canonical metadata, declared Lily, and durable state"
   const runtime = await createVercelRuntime({ env, fetchImpl });
   assert.equal(runtime.declaration.metadata.id, "omniseed_ecosystem");
   assert.equal(runtime.engine.binding.desiredRevision, "a".repeat(40));
-  assert.equal(runtime.engine.binding.deployment.provider, "vercel_interface");
+  assert.equal(runtime.engine.binding.deployment.provider, "vercel");
 });
 
 function runtimeEnv() {
