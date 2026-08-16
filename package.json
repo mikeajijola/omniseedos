@@ -8,6 +8,7 @@
   "exports": { ".": "./src/app.js" },
   "scripts": { "start": "node src/server.js", "test": "node --test", "test:distribution": "node scripts/verify-distribution.mjs", "check": "npm test" },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@omniseed/engine": "1.0.0-alpha.4",
     "@omniseed/omniform": "1.0.0-alpha.4"
   },
