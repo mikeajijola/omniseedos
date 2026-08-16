@@ -14,7 +14,7 @@ export async function createVercelRuntime({ env = process.env, fetchImpl = fetch
   const desired = declaration.spec.governance?.desiredState;
   if (!desired?.repository || desired.changeMode !== "pull_request") throw new Error("The deployed company must declare a PR-governed canonical repository.");
   const store = new DurableHttpStateStore({ endpoint: env.OMNISEED_STATE_ENDPOINT, token: env.OMNISEED_STATE_TOKEN, fetchImpl });
-  const binding = { desiredRevision: env.OMNISEED_DESIRED_REVISION, environment: env.OMNISEED_ENVIRONMENT ?? "production", deployment: { id: env.VERCEL_DEPLOYMENT_ID ?? env.VERCEL_URL ?? "unresolved", provider: "vercel_interface" } };
+  const binding = { desiredRevision: env.OMNISEED_DESIRED_REVISION, environment: env.OMNISEED_ENVIRONMENT ?? "production", deployment: { id: env.VERCEL_DEPLOYMENT_ID ?? env.VERCEL_URL ?? "unresolved", provider: "vercel" } };
   const engine = new OmniSeed({ store, providers: providerRegistry, binding });
   const authenticate = createBearerIdentityResolver({ operatorToken: env.OMNISEED_OPERATOR_TOKEN, operator: { role: "operator", authorization: { actorId: env.OMNISEED_OPERATOR_ACTOR_ID ?? "operator", permissions: ["company.read", "capability.read", "plan.create", "plan.approve", "plan.apply", "company_search.read", "company_change.propose", "company_change.read"] } } });
   const stewardAuthorization = resolveDeclaredActorAuthorization(declaration, env.OMNISEED_STEWARD_ACTOR_ID);
