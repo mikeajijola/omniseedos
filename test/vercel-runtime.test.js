@@ -87,6 +87,7 @@ function runtimeEnv() {
     OMNISEED_STATE_ENDPOINT: "https://state.example.test",
     OMNISEED_STATE_TOKEN: "durable-state-secret",
     OMNISEED_OPERATOR_TOKEN: "operator-token-at-least-thirty-two-characters",
+    OMNISEED_OPERATION_TOKEN: "operation-token-at-least-thirty-two-characters",
     OMNISEED_STEWARD_ACTOR_ID: "lily",
     OMNISEED_ENVIRONMENT: "production",
     VERCEL_DEPLOYMENT_ID: "dpl_test"

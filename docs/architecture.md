@@ -30,8 +30,9 @@ Company Search is projected as the ordinary `company_search` Capability and gove
 | `POST /api/apply` | Apply the reviewed plan | `engine.apply()` |
 | `POST /api/search` | Search governed company knowledge | registered `search_company` operation |
 | `POST /api/lily` | Resolve a message against available operations | compiled operation registry |
+| `POST /v1/companies/{companyId}/operations/{operationId}:invoke` | Invoke one declared governed operation | server-bound Agent identity |
 
-The OS forwards exact plan/approval objects. It does not reproduce engine policy. Authorization is derived on the server from an authenticated identity; authorization objects in request bodies are ignored. GET /api/company is the sole anonymous route and is read-only. The reference deployment uses a minimum 32-character bearer token (OMNISEED_OPERATOR_TOKEN) as a temporary operator authentication mechanism. A production identity-provider adapter can replace that resolver without changing OmniSeed operations. Steward permissions are resolved from the declared Agent resource's authority instead of runtime defaults.
+The OS forwards exact plan/approval objects. It does not reproduce engine policy. Authorization is derived on the server from an authenticated identity; authorization objects in request bodies are ignored. GET /api/company is the sole anonymous route and is read-only. The reference deployment uses minimum 32-character bearer tokens (`OMNISEED_OPERATOR_TOKEN` for the human boundary and `OMNISEED_OPERATION_TOKEN` for the Agent operation boundary). A production identity-provider adapter can replace those resolvers without changing OmniSeed operations. Steward permissions are resolved from the declared Agent resource's authority instead of runtime defaults.
 
 ## Process and distribution details
 
