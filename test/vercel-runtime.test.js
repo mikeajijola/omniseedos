@@ -79,6 +79,25 @@ test("Vercel runtime binds canonical metadata, declared Lily, and durable state"
   assert.equal(runtime.engine.binding.deployment.provider, "vercel");
 });
 
+test("read-only inspection mode projects pinned Git desired state without fabricating durable observations", async () => {
+  const env = runtimeEnv();
+  env.OMNISEED_READ_ONLY_INSPECTION = "true";
+  delete env.OMNISEED_STATE_ENDPOINT;
+  delete env.OMNISEED_STATE_TOKEN;
+  delete env.OMNISEED_OPERATOR_TOKEN;
+  delete env.OMNISEED_OPERATION_TOKEN;
+  const runtime = await createVercelRuntime({ env, fetchImpl: async url => {
+    assert.equal(url, env.OMNISEED_COMPANY_DEFINITION_URL);
+    return new Response(company);
+  } });
+  const projection = await runtime.engine.inspect(runtime.declaration);
+  assert.equal(runtime.inspectionMode, true);
+  assert.equal(projection.instance.environment, "production-read-only-inspection");
+  assert.equal(projection.instance.desiredRevision, "a".repeat(40));
+  assert.equal(projection.observations.length, 0);
+  assert.ok(projection.providerGaps.length > 0);
+});
+
 function runtimeEnv() {
   const revision = "a".repeat(40);
   return {
