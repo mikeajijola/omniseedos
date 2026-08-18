@@ -40,6 +40,14 @@ The OS forwards exact plan/approval objects. It does not reproduce engine policy
 
 `OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `OMNISEED_DESIRED_REVISION`, `OMNISEED_ENVIRONMENT`, `OMNISEED_DEPLOYMENT_ID`, and `OMNISEED_DEPLOYMENT_PROVIDER` bind the replaceable OS deployment to the canonical company revision without defining company identity. `OMNISEED_OPERATOR_TOKEN` and `OMNISEED_OPERATOR_ACTOR_ID` configure the temporary human authentication boundary. `OMNISEED_STEWARD_ACTOR_ID` binds the server-side steward identity; its permissions are fixed by the runtime and cannot be supplied by the browser. `PORT` defaults to `4310`.
 
+For an Eve-backed declared Agent, `spec.resources.agents[].runtime.session`
+declares the credential reference, issuer, audience, and optional subject used
+for the OS-to-Agent session. `runtime.expectedEndpoints.operation` declares the
+canonical Eve session endpoint. The Vercel Provider resolves the same secret
+reference into both deployments. Different companies can therefore reproduce
+the topology from the same declarations while supplying their own secret value
+as normal environment configuration.
+
 The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
 
 ## Vercel serverless adapter
@@ -58,6 +66,17 @@ Provider gaps rather than fabricating observations. It is useful while bringing
 up a company endpoint, but it is not durable production reconciliation and does
 not satisfy live Provider acceptance.
 
-`SemanticStewardClient` is the replaceable Agent-runtime hook. A semantic runtime receives only company ID, actor ID, the operator message, and prior governed tool results. Requested tools are invoked by the OS through `engine.invokeOperation` using authority resolved from the declared Agent; the runtime receives no Provider credential and cannot grant itself permissions.
+The production Vercel adapter discovers the selected stewardship Agent from the
+approved company declaration. For a declared Eve implementation it constructs a
+server-side Eve session client from the Agent's declared immutable runtime
+endpoint and session credential reference. The browser cannot select the
+runtime URL, Provider, company, actor, or secret. Lily's authored tools call the
+same authenticated OmniSeed operation endpoint as every other Agent; no
+Provider credential enters Lily or the browser.
+
+`SemanticStewardClient` remains the replaceable in-process Agent-runtime hook.
+Both remote and in-process adapters are implementation choices beneath the
+declared Agent primitive; neither changes the stewardship capability or makes
+Eve a Provider.
 
 Production uses matching versioned `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os` artifacts. `npm run test:distribution -- <omniform.tgz> <engine.tgz>` installs the artifacts into an isolated consumer and verifies that no sibling repository path is required.

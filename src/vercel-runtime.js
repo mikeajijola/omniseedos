@@ -2,6 +2,7 @@ import { parseOmniform } from "@omniseed/omniform";
 import { MemoryStateStore, OmniSeed, ProviderRegistry } from "@omniseed/engine";
 import { createBearerIdentityResolver, createOmniSeedOsHandler, resolveDeclaredActorAuthorization } from "./app.js";
 import { DurableHttpStateStore } from "./durable-http-store.js";
+import { createDeclaredStewardClient } from "./declared-steward.js";
 
 export function restoreVercelApiPath(request) {
   const path = request?.query?.path;
@@ -28,5 +29,6 @@ export async function createVercelRuntime({ env = process.env, fetchImpl = fetch
   const stewardAuthorization = resolveDeclaredActorAuthorization(declaration, env.OMNISEED_STEWARD_ACTOR_ID);
   if (!stewardAuthorization) throw new Error("Configured steward is not a declared Agent resource.");
   const operationAuthenticate = createBearerIdentityResolver({ operatorToken: env.OMNISEED_OPERATION_TOKEN, operator: { role: "agent", authorization: stewardAuthorization } });
-  return { declaration, engine, inspectionMode, handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward }) };
+  const declaredSteward = steward ?? createDeclaredStewardClient({ declaration, actorId: env.OMNISEED_STEWARD_ACTOR_ID, env, fetchImpl });
+  return { declaration, engine, inspectionMode, handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward }) };
 }

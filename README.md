@@ -16,7 +16,10 @@ It belongs to one company. It shows the company as OmniSeed currently understand
 
 OmniSeed OS does not make up company state. It shows what OmniSeed has worked out from the company's definition, saved state, Providers, and evidence.
 
-Lily lives here. Lily is the company's steward.
+The company-selected steward can appear here. In the reference ecosystem
+company that actor is Lily, whose independently deployed Agent runtime is
+implemented with Eve and supplied by Vercel. Lily does not belong to OmniSeed
+OS; the OS discovers the selected stewardship realisation from company state.
 
 A founder should be able to ask Lily:
 
@@ -72,7 +75,7 @@ It owns:
 
 - the company screen
 - the web API used by that screen
-- Lily's entry point
+- the human entry point to the company-declared steward
 - clear views of Capabilities, missing parts, plans, and approvals
 
 It does not own:
