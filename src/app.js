@@ -95,6 +95,18 @@ export class GovernedStewardClient {
     if (authorization?.actorId !== actor.resource) return { status: "unauthorized", message: "The requesting identity is not the declared steward actor.", operationId: null };
     const text = message.toLowerCase();
     if (/give yourself|grant yourself|without approval|bypass/.test(text)) return { status: "refused", message: "I cannot grant myself authority or bypass the company’s approval policy.", operationId: null };
+    if (/\b(observe|drift|reconcile|check reality)\b/.test(text) && !/\b(operate|plan|set up|realise|realize|fix)\b/.test(text)) {
+      const operation = registry.operations.find(item => item.id === "observe_company");
+      if (!operation || operation.currentAvailability !== "available") return unavailable("observe_company", operation);
+      const projection = await engine.invokeOperation(declaration, "observe_company", {}, authorization);
+      return { status: "completed", operationId: "observe_company", message: "I observed deployed resources through their selected Providers and recorded the resulting state and evidence. Desired state was not changed.", projection: { instance: projection.instance, observations: projection.observations, evidence: projection.evidence } };
+    }
+    if (/\b(operate|plan|set up|realise|realize|fix)\b/.test(text)) {
+      const operation = registry.operations.find(item => item.id === "generate_plan");
+      if (!operation || operation.currentAvailability !== "available") return unavailable("generate_plan", operation);
+      const plan = await engine.invokeOperation(declaration, "generate_plan", {}, authorization);
+      return { status: "review_required", operationId: "generate_plan", message: plan.actions.length ? `I prepared ${plan.actions.length} governed action${plan.actions.length === 1 ? "" : "s"}. The exact persisted plan must be reviewed and approved before apply.` : "I generated an empty plan: the current desired resources require no new create actions. Observation may still reveal drift.", projection: { plan } };
+    }
     if (/propose|replace|change/.test(text)) {
       const operation = registry.operations.find(item => item.id === "propose_company_change");
       if (!operation || operation.currentAvailability !== "available") return unavailable("propose_company_change", operation);
