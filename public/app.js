@@ -6,6 +6,9 @@ const labels = { capabilities:"Capabilities",realisations:"Realisations",plan:"P
 async function load() {
   registry = await fetch("/api/company").then(response => response.json());
   $("#company").textContent = registry.company.name;
+  const readOnly = registry.instance.environment.endsWith("-read-only-inspection");
+  $("#runtime-label").textContent = readOnly ? "Read-only" : registry.observations.length ? "Observed" : "Desired only";
+  $("#instance").textContent = `${registry.instance.desiredState?.repository ?? "No canonical repository"} · ${registry.instance.desiredRevision ?? "revision unknown"} · ${registry.instance.environment}`;
   const steward = registry.stewardship?.realisation?.participants.find(item => item.family === "agents")?.desired;
   if (steward) { $("#steward-nav").textContent = steward.name; $("#steward-title").textContent = `${steward.name.toUpperCase()} · COMPANY STEWARD`; $("#steward-mark").textContent = steward.name.slice(0,1).toUpperCase(); }
   const realised = registry.capabilities.filter(item => item.state === "realised").length;

@@ -48,6 +48,14 @@ Serverless runtime state cannot use the process filesystem. `DurableHttpStateSto
 
 The Vercel adapter exposes that authenticated service at `/api/state/companies/{companyId}/state` when `DATABASE_URL` is bound to durable PostgreSQL. Writes use an atomic version predicate and return `412` on stale compare-and-swap attempts. The database, not the Vercel function filesystem, retains proposals, Activity, observations, and evidence across cold starts and deployments.
 
+`OMNISEED_READ_ONLY_INSPECTION=true` is a deliberately narrower bootstrap mode.
+It loads an immutable Git revision and lets the public UI inspect the Engine's
+desired-state projection, but supplies an empty in-memory runtime store and no
+authenticated mutation identity. The UI labels this mode explicitly and shows
+Provider gaps rather than fabricating observations. It is useful while bringing
+up a company endpoint, but it is not durable production reconciliation and does
+not satisfy live Provider acceptance.
+
 `SemanticStewardClient` is the replaceable Agent-runtime hook. A semantic runtime receives only company ID, actor ID, the operator message, and prior governed tool results. Requested tools are invoked by the OS through `engine.invokeOperation` using authority resolved from the declared Agent; the runtime receives no Provider credential and cannot grant itself permissions.
 
 Production uses matching versioned `@omniseed/omniform`, `@omniseed/engine`, and `@omniseed/os` artifacts. `npm run test:distribution -- <omniform.tgz> <engine.tgz>` installs the artifacts into an isolated consumer and verifies that no sibling repository path is required.

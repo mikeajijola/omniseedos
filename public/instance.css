@@ -1,0 +1,9 @@
+#instance {
+  display: block;
+  margin-top: 7px;
+  color: #78837b;
+  max-width: 70vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
