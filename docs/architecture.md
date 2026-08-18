@@ -14,6 +14,8 @@ The UI follows the ecosystem's authoritative [Provider semantics](https://github
 
 The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. The declared steward, voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary. The UI discovers the stewardship realisation instead of hard-coding Lily.
 
+Reconciliation is projected like any other company Capability. Lily may invoke the declared `generate_plan` and `observe_company` operations when her company authority permits them; applying a non-empty plan still requires the exact persisted plan and a separate approval. The OS refreshes the Engine projection after a steward operation so plans, observations, evidence, and Activity remain one shared truth rather than chat-only state.
+
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
 
 Company Search is projected as the ordinary `company_search` Capability and governed `search_company` operation from the executable registry. The OS may display the capability realisation resolved by OmniSeed, but performs no Provider selection, composition, fallback, indexing authority, or result calculation. Search is company-scoped retrieval over replaceable primitive Providers, not a memory feature, special Provider class, or canonical state.
