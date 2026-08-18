@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableHttpStateStore } from "../src/durable-http-store.js";
 import { SemanticStewardClient } from "../src/semantic-steward.js";
-import { createVercelRuntime } from "../src/vercel-runtime.js";
+import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
 
 const company = `apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -22,6 +22,11 @@ spec:
   operations:
     - { id: inspect_company, capability: stewardship, description: Inspect company, input: {}, output: {}, mutation: false, permissions: [company.read], approval: none, interfaces: [lily, api] }
 `;
+
+test("Vercel adapter restores the governed API path after the catch-all rewrite", () => {
+  assert.equal(restoreVercelApiPath({ url: "/api?path=company", query: { path: "company" } }), "/api/company");
+  assert.equal(restoreVercelApiPath({ url: "/api?path=operations%2Finspect_company", query: { path: ["operations", "inspect_company"] } }), "/api/operations/inspect_company");
+});
 
 test("durable store scopes requests and enforces returned version", async () => {
   const calls = [];

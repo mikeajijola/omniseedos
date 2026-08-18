@@ -1,10 +1,11 @@
-import { createVercelRuntime } from "../src/vercel-runtime.js";
+import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
 import { neon } from "@neondatabase/serverless";
 import { createDurableStateService } from "../src/durable-state-service.js";
 
 let runtime;
 let stateService;
 export default async function handler(request, response) {
+  request.url = restoreVercelApiPath(request);
   if (request.url?.startsWith("/api/state/")) {
     if (!process.env.DATABASE_URL || !process.env.OMNISEED_STATE_TOKEN) return response.status(503).json({ error: "state_service_not_configured" });
     const sql = neon(process.env.DATABASE_URL);
