@@ -3,6 +3,13 @@ import { MemoryStateStore, OmniSeed, ProviderRegistry } from "@omniseed/engine";
 import { createBearerIdentityResolver, createOmniSeedOsHandler, resolveDeclaredActorAuthorization } from "./app.js";
 import { DurableHttpStateStore } from "./durable-http-store.js";
 
+export function restoreVercelApiPath(request) {
+  const path = request?.query?.path;
+  if (path === undefined) return request?.url ?? "/api";
+  const segments = (Array.isArray(path) ? path : [path]).flatMap(value => String(value).split("/")).filter(Boolean);
+  return `/api/${segments.map(segment => encodeURIComponent(decodeURIComponent(segment))).join("/")}`;
+}
+
 export async function createVercelRuntime({ env = process.env, fetchImpl = fetch, providerRegistry = new ProviderRegistry(), steward } = {}) {
   const inspectionMode = env.OMNISEED_READ_ONLY_INSPECTION === "true";
   const required = ["OMNISEED_COMPANY_DEFINITION_URL", "OMNISEED_DESIRED_REVISION", "OMNISEED_STEWARD_ACTOR_ID", ...(inspectionMode ? [] : ["OMNISEED_STATE_ENDPOINT", "OMNISEED_STATE_TOKEN", "OMNISEED_OPERATOR_TOKEN", "OMNISEED_OPERATION_TOKEN"])];
