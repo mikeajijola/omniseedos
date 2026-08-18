@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableHttpStateStore } from "../src/durable-http-store.js";
 import { SemanticStewardClient } from "../src/semantic-steward.js";
+import { createDeclaredStewardClient, signSessionToken } from "../src/declared-steward.js";
 import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
 
 const company = `apiVersion: omniform.org/v1alpha1
@@ -18,7 +19,15 @@ spec:
     - { id: lily_stewardship, name: Lily, capability: stewardship, participants: [{ resource: lily, supplies: [agency] }] }
   resources:
     agents:
-      - { id: lily, name: Lily, offers: [agency], spec: { authority: [company.read] } }
+      - id: lily
+        name: Lily
+        offers: [agency]
+        spec:
+          authority: [company.read]
+          implementation: { framework: eve }
+          runtime:
+            expectedEndpoints: { operation: https://lily.example.test/eve/v1/session }
+            session: { credentialReference: LILY_SESSION_JWT_SECRET, issuer: omniseed, audience: omniseed-lily }
   operations:
     - { id: inspect_company, capability: stewardship, description: Inspect company, input: {}, output: {}, mutation: false, permissions: [company.read], approval: none, interfaces: [lily, api] }
 `;
@@ -84,6 +93,42 @@ test("Vercel runtime binds canonical metadata, declared Lily, and durable state"
   assert.equal(runtime.engine.binding.deployment.provider, "vercel");
 });
 
+test("declared steward adapter signs a scoped short-lived token and consumes Eve session output", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith("/eve/v1/session")) return Response.json({ ok: true, sessionId: "ses_1" });
+    return new Response([
+      JSON.stringify({ type: "message.appended", meta: { turnId: "turn_1" }, data: { messageDelta: "OmniSeed " } }),
+      JSON.stringify({ type: "message.appended", meta: { turnId: "turn_1" }, data: { messageDelta: "Ecosystem" } }),
+      JSON.stringify({ type: "message.completed", meta: { turnId: "turn_1" }, data: { message: "OmniSeed Ecosystem" } }),
+      JSON.stringify({ type: "session.waiting", data: { continuationToken: "not-returned" } })
+    ].join("\n"), { headers: { "content-type": "application/x-ndjson" } });
+  };
+  const declaration = (await createVercelRuntime({ env: runtimeEnv(), fetchImpl: async url => {
+    if (String(url).includes("raw.githubusercontent.com")) return new Response(company);
+    if (String(url).includes("state.example.test")) return new Response(null, { status: 404 });
+    throw new Error(`Unexpected URL ${url}`);
+  }, steward: { handle: async () => ({}) } })).declaration;
+  const client = createDeclaredStewardClient({ declaration, actorId: "lily", env: runtimeEnv(), fetchImpl, now: () => 1_700_000_000_000, nonce: () => "nonce" });
+  const answer = await client.handle({ message: "What company?" });
+  assert.equal(answer.message, "OmniSeed Ecosystem");
+  assert.deepEqual(answer.runtime, { framework: "eve", sessionId: "ses_1", turnId: "turn_1" });
+  const token = calls[0].init.headers.authorization.slice(7);
+  const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url"));
+  assert.deepEqual({ iss: payload.iss, aud: payload.aud, sub: payload.sub, company_ref: payload.company_ref, exp: payload.exp - payload.iat }, { iss: "omniseed", aud: "omniseed-lily", sub: "omniseed-os:omniseed_ecosystem", company_ref: "omniseed_ecosystem", exp: 300 });
+  assert.equal(calls[1].init.headers.authorization, calls[0].init.headers.authorization);
+  assert.doesNotMatch(JSON.stringify(answer), /session-secret|continuationToken/);
+});
+
+test("declared steward runtime fails closed for missing config, insecure endpoints, and weak secrets", () => {
+  const parsed = { metadata: { id: "company" }, spec: { resources: { agents: [{ id: "lily", spec: { implementation: { framework: "eve" }, runtime: { expectedEndpoints: { operation: "http://remote.test/eve/v1/session" }, session: { credentialReference: "SESSION_SECRET" } } } }] } } };
+  assert.throws(() => createDeclaredStewardClient({ declaration: parsed, actorId: "lily", env: { SESSION_SECRET: "x".repeat(32) } }), /HTTPS/);
+  parsed.spec.resources.agents[0].spec.runtime.expectedEndpoints.operation = "https://remote.test/eve/v1/session";
+  assert.throws(() => createDeclaredStewardClient({ declaration: parsed, actorId: "lily", env: {} }), /credential is unavailable/);
+  assert.throws(() => signSessionToken({ secret: "weak", issuer: "i", audience: "a", subject: "s", companyId: "c" }), /at least 32/);
+});
+
 test("read-only inspection mode projects pinned Git desired state without fabricating durable observations", async () => {
   const env = runtimeEnv();
   env.OMNISEED_READ_ONLY_INSPECTION = "true";
@@ -114,6 +159,7 @@ function runtimeEnv() {
     OMNISEED_OPERATION_TOKEN: "operation-token-at-least-thirty-two-characters",
     OMNISEED_STEWARD_ACTOR_ID: "lily",
     OMNISEED_ENVIRONMENT: "production",
-    VERCEL_DEPLOYMENT_ID: "dpl_test"
+    VERCEL_DEPLOYMENT_ID: "dpl_test",
+    LILY_SESSION_JWT_SECRET: "session-secret-at-least-thirty-two-characters"
   };
 }
