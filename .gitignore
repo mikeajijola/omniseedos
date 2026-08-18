@@ -1,3 +1,6 @@
 node_modules/
+dist/
 .omniseed/
 *.log
+.vercel
+.env*
