@@ -62,6 +62,7 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     await writeFile(join(stateFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(operationFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(configPath, JSON.stringify({ version: 3, routes: [
+      { handle: "filesystem" },
       { src: "/api/company", dest: "/api/company" },
       { src: "/api/state/companies/(?<companyId>[^/]+)/state", dest: "/api/state/companies/[companyId]/state" },
       { src: "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)", dest: "/v1/companies/[companyId]/operations/[operation]" },
@@ -70,9 +71,12 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     const matched = await routeGovernedDynamicsThroughServer(configPath);
     const config = JSON.parse(await readFile(configPath, "utf8"));
     assert.equal(matched.length, 2);
-    assert.equal(config.routes[0].dest, "/api/company");
+    assert.match(config.routes[0].src, /^\/api\/state\/companies\//);
+    assert.equal(config.routes[0].dest, "/__server");
+    assert.match(config.routes[1].src, /^\/v1\/companies\//);
     assert.equal(config.routes[1].dest, "/__server");
-    assert.equal(config.routes[2].dest, "/__server");
+    assert.equal(config.routes[2].handle, "filesystem");
+    assert.equal(config.routes[3].dest, "/api/company");
     await assert.rejects(access(stateFunction));
     await assert.rejects(access(operationFunction));
   } finally {
