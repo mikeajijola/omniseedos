@@ -17,3 +17,14 @@ test("Vercel build copies the approved public interface into the configured outp
     await rm(output, { recursive: true, force: true });
   }
 });
+
+test("production runtime composition pins Lily and emits one Eve-hosted Vercel artifact", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const vercel = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  assert.equal(manifest.dependencies["@omniseed/lily"], "https://github.com/mikeajijola/omniseed-lily/archive/c3bd1d69f3f501e550b7950f0c27eb813ebe762e.tar.gz");
+  assert.equal(vercel.outputDirectory, ".output");
+  assert.equal(vercel.buildCommand, "npm run build:runtime");
+  const assembly = await readFile(new URL("../runtime-assembly/omniseed-os.ts", import.meta.url), "utf8");
+  assert.match(assembly, /\/api\/company/);
+  assert.match(assembly, /\/v1\/companies/);
+});

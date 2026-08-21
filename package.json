@@ -6,12 +6,13 @@
   "publishConfig": { "access": "public", "tag": "alpha" },
   "type": "module",
   "exports": { ".": "./src/app.js" },
-  "scripts": { "start": "node src/server.js", "vercel-build": "node scripts/vercel-build.mjs", "test": "node --test", "test:distribution": "node scripts/verify-distribution.mjs", "check": "npm test" },
+  "scripts": { "start": "node src/server.js", "vercel-build": "node scripts/build-unified-runtime.mjs", "build:runtime": "node scripts/build-unified-runtime.mjs", "test": "node --test", "test:distribution": "node scripts/verify-distribution.mjs", "check": "npm test" },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
     "@omniseed/engine": "1.0.0-alpha.8",
+    "@omniseed/lily": "https://github.com/mikeajijola/omniseed-lily/archive/c3bd1d69f3f501e550b7950f0c27eb813ebe762e.tar.gz",
     "@omniseed/omniform": "1.0.0-alpha.5"
   },
   "engines": { "node": ">=22" },
-  "files": ["src", "public", "api", "vercel.json", "README.md", "docs", "scripts"]
+  "files": ["src", "public", "api", "runtime-assembly", "vercel.json", "README.md", "docs", "scripts"]
 }
