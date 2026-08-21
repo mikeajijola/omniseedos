@@ -14,16 +14,22 @@ const governedDynamicFunctions = [
 export async function routeGovernedDynamicsThroughServer(configPath) {
   const config = JSON.parse(await readFile(configPath, "utf8"));
   const matched = [];
+  const matchedRoutes = [];
   for (const route of config.routes ?? []) {
     if (!governedDynamicRoutes.some(prefix => route.src?.startsWith(prefix))) continue;
     route.dest = "/__server";
     matched.push(route.src);
+    matchedRoutes.push(route);
   }
   if (matched.length !== governedDynamicRoutes.length) {
     throw new Error(`Expected ${governedDynamicRoutes.length} governed dynamic Vercel routes, found ${matched.length}`);
   }
   const functionsRoot = join(dirname(configPath), "functions");
   await Promise.all(governedDynamicFunctions.map(path => rm(join(functionsRoot, path), { recursive: true, force: true })));
+  const remainingRoutes = config.routes.filter(route => !matchedRoutes.includes(route));
+  const filesystemIndex = remainingRoutes.findIndex(route => route.handle === "filesystem");
+  remainingRoutes.splice(filesystemIndex < 0 ? 0 : filesystemIndex, 0, ...matchedRoutes);
+  config.routes = remainingRoutes;
   await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
   return matched;
 }
