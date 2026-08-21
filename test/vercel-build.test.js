@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildStaticAssets } from "../scripts/vercel-build.mjs";
 import { embedOmniformSchema } from "../scripts/embed-omniform-schema.mjs";
+import { routeGovernedDynamicsThroughServer } from "../scripts/fix-vercel-routes.mjs";
 
 test("Vercel build copies the approved public interface into the configured output", async () => {
   const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-build-"));
@@ -45,6 +46,27 @@ test("Vercel bundle embeds the Omniform schema instead of depending on an omitte
     assert.equal(result.schemaId, "omniform:test");
     assert.match(bundle, /const schema = \{"\$id":"omniform:test","type":"object"\};/);
     assert.doesNotMatch(bundle, /readFileSync|omniform\.schema\.json/);
+  } finally {
+    await rm(output, { recursive: true, force: true });
+  }
+});
+
+test("Vercel sends governed dynamic operation and state paths to the real server function", async () => {
+  const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-routes-"));
+  try {
+    const configPath = join(output, "config.json");
+    await writeFile(configPath, JSON.stringify({ version: 3, routes: [
+      { src: "/api/company", dest: "/api/company" },
+      { src: "/api/state/companies/(?<companyId>[^/]+)/state", dest: "/api/state/companies/[companyId]/state" },
+      { src: "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)", dest: "/v1/companies/[companyId]/operations/[operation]" },
+      { src: "/(.*)", dest: "/__server" }
+    ] }));
+    const matched = await routeGovernedDynamicsThroughServer(configPath);
+    const config = JSON.parse(await readFile(configPath, "utf8"));
+    assert.equal(matched.length, 2);
+    assert.equal(config.routes[0].dest, "/api/company");
+    assert.equal(config.routes[1].dest, "/__server");
+    assert.equal(config.routes[2].dest, "/__server");
   } finally {
     await rm(output, { recursive: true, force: true });
   }
