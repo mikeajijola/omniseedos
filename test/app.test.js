@@ -51,7 +51,7 @@ test("distribution manifests use versioned packages, not sibling repositories", 
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.8");
   assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.5");
-  assert.equal(manifest.version, "1.0.0-alpha.14");
+  assert.equal(manifest.version, "1.0.0-alpha.15");
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 
@@ -181,6 +181,24 @@ test("Lily uses the server-bound steward identity, not a browser identity", asyn
   const answer = await fetch(`${base}/api/lily`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message: "What company?", authorization: { actorId: "eve", permissions: ["*"] } }) }).then(response => response.json());
   assert.equal(answer.status, "completed");
   assert.match(answer.message, /Acme/);
+});
+
+test("declared public steward chat needs no browser credential and grants no operator authority", async t => {
+  const canonical = structuredClone(declaration);
+  canonical.spec.capabilities.push({ id: "company_stewardship", name: "Company Stewardship", requires: [{ id: "steward_company", primitiveFamily: "agents" }], realisations: ["primary_steward"] });
+  canonical.spec.resources = { agents: [{ id: "lily", name: "Lily", offers: ["steward_company"], spec: { authority: ["company.read"] } }] };
+  canonical.spec.realisations = [{ id: "primary_steward", name: "Primary steward", capability: "company_stewardship", participants: [{ resource: "lily", role: "steward", supplies: ["steward_company"] }] }];
+  canonical.spec.stewardship = { capability: "company_stewardship", realisation: "primary_steward" };
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const steward = { handle: async ({ authorization }) => ({ status: "completed", message: `actor:${authorization.actorId}` }) };
+  const server = createOmniSeedOs({ engine, declaration: canonical, authenticate, stewardAuthorization: { actorId: "lily", permissions: ["company.read"] }, steward, allowAnonymousStewardChat: true });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const answer = await fetch(`${base}/api/lily`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "What company?", authorization: { actorId: "attacker", permissions: ["*"] } }) });
+  assert.equal(answer.status, 200);
+  assert.equal((await answer.json()).message, "actor:lily");
+  const plan = await fetch(`${base}/api/plan`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  assert.equal(plan.status, 403);
 });
 
 test("steward authority comes from the declared actor resource", () => {

@@ -30,5 +30,6 @@ export async function createVercelRuntime({ env = process.env, fetchImpl = fetch
   if (!stewardAuthorization) throw new Error("Configured steward is not a declared Agent resource.");
   const operationAuthenticate = createBearerIdentityResolver({ operatorToken: env.OMNISEED_OPERATION_TOKEN, operator: { role: "agent", authorization: stewardAuthorization } });
   const declaredSteward = steward ?? createDeclaredStewardClient({ declaration, actorId: env.OMNISEED_STEWARD_ACTOR_ID, env, fetchImpl });
-  return { declaration, engine, inspectionMode, handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward }) };
+  const allowAnonymousStewardChat = env.OMNISEED_PUBLIC_STEWARD_CHAT === "true";
+  return { declaration, engine, inspectionMode, allowAnonymousStewardChat, handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward, allowAnonymousStewardChat }) };
 }
