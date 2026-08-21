@@ -82,6 +82,7 @@ test("Vercel runtime requires immutable desired revision and durable server sett
 
 test("Vercel runtime binds canonical metadata, declared Lily, and durable state", async () => {
   const env = runtimeEnv();
+  env.OMNISEED_PUBLIC_STEWARD_CHAT = "true";
   const fetchImpl = async (url, init = {}) => {
     if (url === env.OMNISEED_COMPANY_DEFINITION_URL) return new Response(company);
     if (String(url).includes("/state")) return new Response(null, { status: 404 });
@@ -91,6 +92,7 @@ test("Vercel runtime binds canonical metadata, declared Lily, and durable state"
   assert.equal(runtime.declaration.metadata.id, "omniseed_ecosystem");
   assert.equal(runtime.engine.binding.desiredRevision, "a".repeat(40));
   assert.equal(runtime.engine.binding.deployment.provider, "vercel");
+  assert.equal(runtime.allowAnonymousStewardChat, true);
 });
 
 test("declared steward adapter signs a scoped short-lived token and consumes Eve session output", async () => {

@@ -7,12 +7,12 @@ import { timingSafeEqual } from "node:crypto";
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
-export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null }) {
-  return createServer(createOmniSeedOsHandler({ engine, declaration, steward, authenticate, operationAuthenticate, stewardAuthorization }));
+export function createOmniSeedOs({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null, allowAnonymousStewardChat = false }) {
+  return createServer(createOmniSeedOsHandler({ engine, declaration, steward, authenticate, operationAuthenticate, stewardAuthorization, allowAnonymousStewardChat }));
 }
 
 /** Request handler shared by the long-lived Node server and serverless adapters. */
-export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null }) {
+export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null, allowAnonymousStewardChat = false }) {
   return async (request, response) => {
     try {
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await engine.inspect(declaration));
@@ -37,7 +37,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
       }
       if (request.url === "/api/lily" && request.method === "POST") {
         const body = await readJson(request);
-        await requireIdentity(authenticate, request, "operator");
+        if (!allowAnonymousStewardChat) await requireIdentity(authenticate, request, "operator");
         if (!stewardAuthorization) throw authError("The declared steward has no server-side runtime identity.");
         return json(response, 200, await steward.handle({ message: body.message, engine, declaration, authorization: stewardAuthorization }));
       }
