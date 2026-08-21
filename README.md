@@ -2,6 +2,13 @@
 
 OmniSeed OS is the optional first-party human operating environment for an OmniSeed-managed company. It is neither the company nor its source of truth. It projects engine-owned instance, Capability, Realisation, plan, observation, evidence, and activity state, and it discovers the company-declared steward.
 
+The reference Vercel build emits one immutable company-runtime artifact. It
+consumes Lily from an exact Git revision and composes Eve routes beside the OS
+UI and governed operation routes in one Vercel project. This hosting composition
+does not make Lily an OS subsystem: Lily remains the replaceable Agent actor,
+Eve remains a Vercel implementation framework, and both resources retain their
+own OmniSeed bindings and observations.
+
 OmniSeed OS is the place where one company is seen and operated.
 
 ## The idea
@@ -17,8 +24,8 @@ It belongs to one company. It shows the company as OmniSeed currently understand
 OmniSeed OS does not make up company state. It shows what OmniSeed has worked out from the company's definition, saved state, Providers, and evidence.
 
 The company-selected steward can appear here. In the reference ecosystem
-company that actor is Lily, whose independently deployed Agent runtime is
-implemented with Eve and supplied by Vercel. Lily does not belong to OmniSeed
+company that actor is Lily, whose Agent runtime is implemented with Eve and
+supplied by Vercel. Lily does not belong to OmniSeed
 OS; the OS discovers the selected stewardship realisation from company state.
 
 A founder should be able to ask Lily:

@@ -4,6 +4,15 @@ One process serves one company by default, but the company exists independently 
 
 The UI follows the ecosystem's authoritative [Provider semantics](https://github.com/mikeajijola/omniseed-ecosystem/blob/main/docs/provider-semantics.md). It labels the supplying organisation as Provider and presents products, services, frameworks, SDKs, and features as implementation detail beneath that Provider. Thus Lily is an Agent implemented using Eve with Vercel as Provider; Eve is not a Provider.
 
+## Shared production runtime
+
+The production Vercel adapter emits one immutable runtime artifact containing
+the OS interface and the declared Eve-backed Lily implementation. The build
+retrieves Lily from an exact Git commit archive, never from a sibling checkout
+or branch tip. Vercel is the single supplying Provider and project boundary.
+Lily's Agent resource and the OS connector resource remain separate company
+primitives even when their observed deployment ID is shared.
+
 ## Repository map
 
 - `src/server.js` loads one Omniform company, chooses its state file, constructs OmniSeed, and starts the server.
@@ -43,8 +52,8 @@ The OS forwards exact plan/approval objects. It does not reproduce engine policy
 For an Eve-backed declared Agent, `spec.resources.agents[].runtime.session`
 declares the credential reference, issuer, audience, and optional subject used
 for the OS-to-Agent session. `runtime.expectedEndpoints.operation` declares the
-canonical Eve session endpoint. The Vercel Provider resolves the same secret
-reference into both deployments. Different companies can therefore reproduce
+canonical Eve session endpoint. The Vercel Provider resolves the declared
+secret references into the shared deployment. Different companies can reproduce
 the topology from the same declarations while supplying their own secret value
 as normal environment configuration.
 

@@ -3,4 +3,7 @@ dist/
 .omniseed/
 *.log
 .vercel
+.output/
+agent/
+.eve/
 .env*
