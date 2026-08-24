@@ -25,8 +25,10 @@ test("production runtime composition pins Lily and emits one Eve-hosted Vercel a
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const vercel = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
   assert.equal(manifest.dependencies["@omniseed/lily"], "https://github.com/mikeajijola/omniseed-lily/archive/c3bd1d69f3f501e550b7950f0c27eb813ebe762e.tar.gz");
-  assert.equal(vercel.outputDirectory, ".output");
-  assert.equal(vercel.buildCommand, "npm run build:runtime");
+  assert.equal(vercel.outputDirectory, undefined);
+  assert.equal(vercel.buildCommand, "npm run build:vercel");
+  assert.equal(manifest.scripts["build:vercel"], "node scripts/build-unified-runtime.mjs --vercel");
+  assert.equal(manifest.scripts["vercel-build"], "node scripts/build-unified-runtime.mjs --vercel");
   assert.equal(vercel.fluid, true);
   const assembly = await readFile(new URL("../runtime-assembly/omniseed-os.ts", import.meta.url), "utf8");
   assert.match(assembly, /\/api\/company/);
@@ -67,12 +69,15 @@ test("Vercel sends governed dynamic operation and state paths to the real server
   try {
     const configPath = join(output, "config.json");
     const staticRoot = join(output, "static");
+    const generatedRootFunction = join(output, "functions", "index.func");
     const stateFunction = join(output, "functions", "api", "state", "companies", "[companyId]", "state.func");
     const operationFunction = join(output, "functions", "v1", "companies", "[companyId]", "operations", "[operation].func");
     await mkdir(staticRoot, { recursive: true });
+    await mkdir(generatedRootFunction, { recursive: true });
     await mkdir(stateFunction, { recursive: true });
     await mkdir(operationFunction, { recursive: true });
     await writeFile(join(staticRoot, "index.html"), "<!doctype html><title>OmniSeed OS</title>\n");
+    await writeFile(join(generatedRootFunction, "index.mjs"), "export default 'generated Eve root';\n");
     await writeFile(join(stateFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(operationFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(configPath, JSON.stringify({ version: 3, routes: [
@@ -92,8 +97,9 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     assert.equal(config.routes[1].dest, "/__server");
     assert.equal(config.routes[2].handle, "filesystem");
     assert.equal(config.routes[3].dest, "/api/company");
-    assert.equal(config.routes.find(route => route.src === "/").dest, "/index.html");
+    assert.equal(config.routes.find(route => route.src === "/"), undefined);
     assert.equal(config.overrides["index.html"].path, "");
+    await assert.rejects(access(generatedRootFunction));
     await assert.rejects(access(stateFunction));
     await assert.rejects(access(operationFunction));
   } finally {

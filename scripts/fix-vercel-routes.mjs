@@ -6,7 +6,8 @@ const governedDynamicRoutes = [
   "/v1/companies/"
 ];
 
-const governedDynamicFunctions = [
+const generatedFunctionsToRemove = [
+  join("index.func"),
   join("api", "state", "companies", "[companyId]", "state.func"),
   join("v1", "companies", "[companyId]", "operations", "[operation].func")
 ];
@@ -31,7 +32,6 @@ export async function routeGovernedDynamicsThroughServer(configPath) {
   if (rootRoutes.length !== 1) {
     throw new Error(`Expected exactly one generated root route, found ${rootRoutes.length}`);
   }
-  rootRoutes[0].dest = "/index.html";
 
   const matched = [];
   const matchedRoutes = [];
@@ -45,8 +45,8 @@ export async function routeGovernedDynamicsThroughServer(configPath) {
     throw new Error(`Expected ${governedDynamicRoutes.length} governed dynamic Vercel routes, found ${matched.length}`);
   }
   const functionsRoot = join(outputRoot, "functions");
-  await Promise.all(governedDynamicFunctions.map(path => rm(join(functionsRoot, path), { recursive: true, force: true })));
-  const remainingRoutes = config.routes.filter(route => !matchedRoutes.includes(route));
+  await Promise.all(generatedFunctionsToRemove.map(path => rm(join(functionsRoot, path), { recursive: true, force: true })));
+  const remainingRoutes = config.routes.filter(route => !matchedRoutes.includes(route) && !rootRoutes.includes(route));
   const filesystemIndex = remainingRoutes.findIndex(route => route.handle === "filesystem");
   remainingRoutes.splice(filesystemIndex < 0 ? 0 : filesystemIndex, 0, ...matchedRoutes);
   config.routes = remainingRoutes;
