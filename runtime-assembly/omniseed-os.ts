@@ -46,6 +46,7 @@ export default defineChannel({
     POST("/api/apply", dispatch),
     POST("/api/lily", steward),
     POST("/api/search", dispatch),
+    POST("/api/operations/:operation", dispatch),
     GET("/api/state/companies/:companyId/state", dispatch),
     PUT("/api/state/companies/:companyId/state", dispatch),
     POST("/v1/companies/:companyId/operations/:operation", dispatch)
