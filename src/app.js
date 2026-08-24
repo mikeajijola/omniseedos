@@ -23,6 +23,12 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
         const result = await engine.invokeOperation(declaration, decodeURIComponent(operationRoute[2]), body.input ?? {}, authorization);
         return json(response, 200, { ok: true, result });
       }
+      const operatorOperationRoute = /^\/api\/operations\/([^/:]+):invoke$/.exec(request.url);
+      if (operatorOperationRoute && request.method === "POST") {
+        const body = await readJson(request), authorization = await requireIdentity(authenticate, request, "operator");
+        const result = await engine.invokeOperation(declaration, decodeURIComponent(operatorOperationRoute[1]), body.input ?? {}, authorization);
+        return json(response, 200, { ok: true, result });
+      }
       if (request.url === "/api/plan" && request.method === "POST") {
         const body = await readJson(request);
         return json(response, 200, await engine.plan(declaration, await requireIdentity(authenticate, request, "operator")));
