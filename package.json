@@ -1,6 +1,6 @@
 {
   "name": "@omniseed/os",
-  "version": "1.0.0-alpha.18",
+  "version": "1.0.0-alpha.19",
   "description": "Per-company operating environment for OmniSeed.",
   "repository": {
     "type": "git",

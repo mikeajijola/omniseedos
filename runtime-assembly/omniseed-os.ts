@@ -1,8 +1,19 @@
 import { Readable } from "node:stream";
 import { defineChannel, GET, POST, PUT } from "eve/channels";
 import { createVercelHandler } from "../../src/vercel-handler.js";
+import { createVercelRuntime } from "../../src/vercel-runtime.js";
+import { streamStewardResult } from "../../src/steward-stream.js";
 
 const handle = createVercelHandler();
+let runtime: ReturnType<typeof createVercelRuntime> | undefined;
+
+async function steward(request: Request) {
+  runtime ??= createVercelRuntime();
+  const resolved = await runtime;
+  if (!resolved.allowAnonymousStewardChat) return dispatch(request);
+  const body = await request.json();
+  return streamStewardResult(() => resolved.handleSteward(body?.message));
+}
 
 async function dispatch(request: Request) {
   const url = new URL(request.url);
@@ -33,7 +44,7 @@ export default defineChannel({
     POST("/api/plan", dispatch),
     POST("/api/approve", dispatch),
     POST("/api/apply", dispatch),
-    POST("/api/lily", dispatch),
+    POST("/api/lily", steward),
     POST("/api/search", dispatch),
     GET("/api/state/companies/:companyId/state", dispatch),
     PUT("/api/state/companies/:companyId/state", dispatch),
