@@ -12,7 +12,7 @@ spec:
   governance:
     desiredState: { repository: https://github.com/mikeajijola/omniseed-ecosystem-company.git, branch: main, path: omniform.yaml, changeMode: pull_request }
   stewardship: { capability: stewardship, realisation: lily_stewardship }
-  providers: { agents: { provider: vercel }, connectors: { provider: vercel } }
+  providers: { agents: { provider: vercel }, connectors: { provider: vercel }, workflows: { provider: github } }
   capabilities:
     - { id: stewardship, name: Steward Ecosystem, requires: [{ id: agency, primitiveFamily: agents }], realisations: [lily_stewardship] }
   realisations:
@@ -28,6 +28,11 @@ spec:
           runtime:
             expectedEndpoints: { operation: https://lily.example.test/eve/v1/session }
             session: { credentialReference: LILY_SESSION_JWT_SECRET, issuer: omniseed, audience: omniseed-lily }
+    workflows:
+      - id: company_change_workflow
+        name: Company Change Workflow
+        offers: [governed_change_process]
+        spec: { provider: github, repository: mikeajijola/omniseed-ecosystem-company, baseBranch: main, path: omniform.yaml, branchPrefix: omniseed/, credentialReference: GITHUB_PROVIDER_TOKEN, mergePolicy: { requireApproval: true, requirePassingChecks: true, mergeMethod: squash } }
   operations:
     - { id: inspect_company, capability: stewardship, description: Inspect company, input: {}, output: {}, mutation: false, permissions: [company.read], approval: none, interfaces: [lily, api] }
 `;
@@ -80,6 +85,15 @@ test("Vercel runtime requires immutable desired revision and durable server sett
   await assert.rejects(createVercelRuntime({ env, fetchImpl: async () => new Response(company) }), /pinned/);
 });
 
+test("production runtime fails closed when declared GitHub Provider credentials are unavailable", async () => {
+  const env = runtimeEnv();
+  delete env.GITHUB_PROVIDER_TOKEN;
+  await assert.rejects(createVercelRuntime({ env, fetchImpl: async url => {
+    if (url === env.OMNISEED_COMPANY_DEFINITION_URL) return new Response(company);
+    throw new Error(`Unexpected URL ${url}`);
+  } }), /credential is unavailable/);
+});
+
 test("Vercel runtime binds canonical metadata, declared Lily, and durable state", async () => {
   const env = runtimeEnv();
   env.OMNISEED_PUBLIC_STEWARD_CHAT = "true";
@@ -88,10 +102,12 @@ test("Vercel runtime binds canonical metadata, declared Lily, and durable state"
     if (String(url).includes("/state")) return new Response(null, { status: 404 });
     throw new Error(`Unexpected URL ${url} ${init.method ?? "GET"}`);
   };
-  const runtime = await createVercelRuntime({ env, fetchImpl });
+  const runtime = await createVercelRuntime({ env, fetchImpl, githubProvider: fakeGitHubProvider() });
   assert.equal(runtime.declaration.metadata.id, "omniseed_ecosystem");
   assert.equal(runtime.engine.binding.desiredRevision, "a".repeat(40));
   assert.equal(runtime.engine.binding.deployment.provider, "vercel");
+  assert.ok(runtime.engine.companyRepository instanceof Object);
+  assert.equal(runtime.engine.providers.require("github").metadata.id, "github");
   assert.equal(runtime.allowAnonymousStewardChat, true);
 });
 
@@ -111,7 +127,7 @@ test("declared steward adapter signs a scoped short-lived token and consumes Eve
     if (String(url).includes("raw.githubusercontent.com")) return new Response(company);
     if (String(url).includes("state.example.test")) return new Response(null, { status: 404 });
     throw new Error(`Unexpected URL ${url}`);
-  }, steward: { handle: async () => ({}) } })).declaration;
+  }, githubProvider: fakeGitHubProvider(), steward: { handle: async () => ({}) } })).declaration;
   const client = createDeclaredStewardClient({ declaration, actorId: "lily", env: runtimeEnv(), fetchImpl, now: () => 1_700_000_000_000, nonce: () => "nonce" });
   const answer = await client.handle({ message: "What company?" });
   assert.equal(answer.message, "OmniSeed Ecosystem");
@@ -162,6 +178,22 @@ function runtimeEnv() {
     OMNISEED_STEWARD_ACTOR_ID: "lily",
     OMNISEED_ENVIRONMENT: "production",
     VERCEL_DEPLOYMENT_ID: "dpl_test",
-    LILY_SESSION_JWT_SECRET: "session-secret-at-least-thirty-two-characters"
+    LILY_SESSION_JWT_SECRET: "session-secret-at-least-thirty-two-characters",
+    GITHUB_PROVIDER_TOKEN: "github-provider-token-at-least-thirty-two"
+  };
+}
+
+function fakeGitHubProvider() {
+  return {
+    metadata: { id: "github", families: ["workflows", "connectors", "identity"], offerings: [], operations: ["company.repository.inspect", "company.change.merge"] },
+    status: { implementation_available: true, configured: true, connected: true, healthy: true },
+    async validate() { return { valid: true, issues: [] }; },
+    async plan(action) { return { deterministic: true, actionId: action.id }; },
+    async apply() { return { providerResourceId: "github://test", status: "proposed" }; },
+    async observe() { return { status: "open", checkedAt: new Date().toISOString(), evidence: [] }; },
+    async invoke(operation) {
+      if (operation === "company.repository.inspect") return { baseSha: "a".repeat(40), document: { path: "omniform.yaml", content: company } };
+      throw new Error(`Unexpected operation ${operation}`);
+    }
   };
 }
