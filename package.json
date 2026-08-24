@@ -25,9 +25,10 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
-    "@omniseed/engine": "1.0.0-alpha.10",
+    "@omniseed/engine": "1.0.0-alpha.12",
     "@omniseed/lily": "https://github.com/mikeajijola/omniseed-lily/archive/c3bd1d69f3f501e550b7950f0c27eb813ebe762e.tar.gz",
-    "@omniseed/omniform": "1.0.0-alpha.5"
+    "@omniseed/omniform": "1.0.0-alpha.5",
+    "@omniseed/provider-github-reference": "https://github.com/mikeajijola/omniseed-provider-github/archive/0933832167dec08bba66f61fc83d5d9cc08317fb.tar.gz"
   },
   "engines": {
     "node": ">=22"
