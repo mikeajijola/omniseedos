@@ -163,6 +163,20 @@ test("governed operation endpoint binds the authenticated Agent and ignores call
   const body = await response.json(); assert.equal(body.ok, true); assert.equal(body.result.id, "deliver_product");
 });
 
+test("operator invokes the same governed operation registry with server-derived authority", async t => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const server = createOmniSeedOs({ engine, declaration, authenticate });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const endpoint = `http://127.0.0.1:${server.address().port}/api/operations/get_capability:invoke`;
+  const forged = JSON.stringify({ input: { capabilityId: "deliver_product" }, authorization: { actorId: "attacker", permissions: ["*"] } });
+  const anonymous = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: forged });
+  assert.equal(anonymous.status, 403);
+  const response = await fetch(endpoint, { method: "POST", headers: authorizedHeaders, body: forged });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.ok, true); assert.equal(body.result.id, "deliver_product");
+});
+
 test("Lily uses the server-bound steward identity, not a browser identity", async t => {
   const canonical = structuredClone(declaration);
   canonical.spec.governance = { desiredState: { repository: "https://github.com/example/acme-company.git", branch: "main", path: "omniform.yaml", changeMode: "pull_request" } };
