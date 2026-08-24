@@ -90,13 +90,15 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     ] }));
     const matched = await routeGovernedDynamicsThroughServer(configPath);
     const config = JSON.parse(await readFile(configPath, "utf8"));
-    assert.equal(matched.length, 2);
+    assert.equal(matched.length, 3);
     assert.match(config.routes[0].src, /^\/api\/state\/companies\//);
     assert.equal(config.routes[0].dest, "/__server");
     assert.match(config.routes[1].src, /^\/v1\/companies\//);
     assert.equal(config.routes[1].dest, "/__server");
-    assert.equal(config.routes[2].handle, "filesystem");
-    assert.equal(config.routes[3].dest, "/api/company");
+    assert.match(config.routes[2].src, /^\/api\/operations\//);
+    assert.equal(config.routes[2].dest, "/__server");
+    assert.equal(config.routes[3].handle, "filesystem");
+    assert.equal(config.routes[4].dest, "/api/company");
     assert.equal(config.routes.find(route => route.src === "/"), undefined);
     assert.equal(config.overrides["index.html"].path, "");
     await assert.rejects(access(generatedRootFunction));
