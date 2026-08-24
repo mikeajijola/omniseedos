@@ -31,5 +31,12 @@ export async function createVercelRuntime({ env = process.env, fetchImpl = fetch
   const operationAuthenticate = createBearerIdentityResolver({ operatorToken: env.OMNISEED_OPERATION_TOKEN, operator: { role: "agent", authorization: stewardAuthorization } });
   const declaredSteward = steward ?? createDeclaredStewardClient({ declaration, actorId: env.OMNISEED_STEWARD_ACTOR_ID, env, fetchImpl });
   const allowAnonymousStewardChat = env.OMNISEED_PUBLIC_STEWARD_CHAT === "true";
-  return { declaration, engine, inspectionMode, allowAnonymousStewardChat, handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward, allowAnonymousStewardChat }) };
+  return {
+    declaration,
+    engine,
+    inspectionMode,
+    allowAnonymousStewardChat,
+    handleSteward: message => declaredSteward.handle({ message, engine, declaration, authorization: stewardAuthorization }),
+    handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward, allowAnonymousStewardChat })
+  };
 }
