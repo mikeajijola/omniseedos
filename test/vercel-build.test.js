@@ -33,6 +33,7 @@ test("production runtime composition pins Lily and emits one Eve-hosted Vercel a
   const assembly = await readFile(new URL("../runtime-assembly/omniseed-os.ts", import.meta.url), "utf8");
   assert.match(assembly, /\/api\/company/);
   assert.match(assembly, /\/v1\/companies/);
+  assert.match(assembly, /\/api\/operations\/:operation/);
 });
 
 test("Vercel bundle embeds the Omniform schema instead of depending on an omitted runtime file", async () => {
