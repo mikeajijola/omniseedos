@@ -1,6 +1,6 @@
 {
   "name": "@omniseed/os",
-  "version": "1.0.0-alpha.21",
+  "version": "1.0.0-alpha.22",
   "description": "Per-company operating environment for OmniSeed.",
   "repository": {
     "type": "git",
@@ -16,7 +16,8 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "vercel-build": "node scripts/build-unified-runtime.mjs",
+    "vercel-build": "node scripts/build-unified-runtime.mjs --vercel",
+    "build:vercel": "node scripts/build-unified-runtime.mjs --vercel",
     "build:runtime": "node scripts/build-unified-runtime.mjs",
     "test": "node --test",
     "test:distribution": "node scripts/verify-distribution.mjs",
