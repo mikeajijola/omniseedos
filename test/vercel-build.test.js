@@ -27,6 +27,7 @@ test("production runtime composition pins Lily and emits one Eve-hosted Vercel a
   assert.equal(manifest.dependencies["@omniseed/lily"], "https://github.com/mikeajijola/omniseed-lily/archive/c3bd1d69f3f501e550b7950f0c27eb813ebe762e.tar.gz");
   assert.equal(vercel.outputDirectory, ".output");
   assert.equal(vercel.buildCommand, "npm run build:runtime");
+  assert.equal(vercel.fluid, true);
   const assembly = await readFile(new URL("../runtime-assembly/omniseed-os.ts", import.meta.url), "utf8");
   assert.match(assembly, /\/api\/company/);
   assert.match(assembly, /\/v1\/companies/);
@@ -94,7 +95,7 @@ test("Vercel sends governed dynamic operation and state paths to the real server
   }
 });
 
-test("Vercel gives the shared OS and Eve function the account maximum duration", async () => {
+test("Vercel enables Fluid compute and gives the shared OS and Eve function 300 seconds", async () => {
   const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-runtime-"));
   try {
     const server = join(output, "__server.func");
@@ -103,8 +104,8 @@ test("Vercel gives the shared OS and Eve function the account maximum duration",
     await writeFile(configPath, JSON.stringify({ handler: "index.mjs", runtime: "nodejs24.x" }));
     const result = await configureVercelRuntime(output);
     const config = JSON.parse(await readFile(configPath, "utf8"));
-    assert.equal(result.maxDuration, "max");
-    assert.equal(config.maxDuration, "max");
+    assert.equal(result.maxDuration, 300);
+    assert.equal(config.maxDuration, 300);
     assert.equal(config.runtime, "nodejs24.x");
   } finally {
     await rm(output, { recursive: true, force: true });
