@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { buildStaticAssets } from "../scripts/vercel-build.mjs";
 import { embedOmniformSchema } from "../scripts/embed-omniform-schema.mjs";
 import { routeGovernedDynamicsThroughServer } from "../scripts/fix-vercel-routes.mjs";
+import { configureVercelRuntime } from "../scripts/configure-vercel-runtime.mjs";
 
 test("Vercel build copies the approved public interface into the configured output", async () => {
   const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-build-"));
@@ -88,6 +89,23 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     assert.equal(config.routes[3].dest, "/api/company");
     await assert.rejects(access(stateFunction));
     await assert.rejects(access(operationFunction));
+  } finally {
+    await rm(output, { recursive: true, force: true });
+  }
+});
+
+test("Vercel gives the shared OS and Eve function the account maximum duration", async () => {
+  const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-runtime-"));
+  try {
+    const server = join(output, "__server.func");
+    const configPath = join(server, ".vc-config.json");
+    await mkdir(server, { recursive: true });
+    await writeFile(configPath, JSON.stringify({ handler: "index.mjs", runtime: "nodejs24.x" }));
+    const result = await configureVercelRuntime(output);
+    const config = JSON.parse(await readFile(configPath, "utf8"));
+    assert.equal(result.maxDuration, "max");
+    assert.equal(config.maxDuration, "max");
+    assert.equal(config.runtime, "nodejs24.x");
   } finally {
     await rm(output, { recursive: true, force: true });
   }
