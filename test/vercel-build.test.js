@@ -66,10 +66,13 @@ test("Vercel sends governed dynamic operation and state paths to the real server
   const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-routes-"));
   try {
     const configPath = join(output, "config.json");
+    const staticRoot = join(output, "static");
     const stateFunction = join(output, "functions", "api", "state", "companies", "[companyId]", "state.func");
     const operationFunction = join(output, "functions", "v1", "companies", "[companyId]", "operations", "[operation].func");
+    await mkdir(staticRoot, { recursive: true });
     await mkdir(stateFunction, { recursive: true });
     await mkdir(operationFunction, { recursive: true });
+    await writeFile(join(staticRoot, "index.html"), "<!doctype html><title>OmniSeed OS</title>\n");
     await writeFile(join(stateFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(operationFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(configPath, JSON.stringify({ version: 3, routes: [
@@ -77,6 +80,7 @@ test("Vercel sends governed dynamic operation and state paths to the real server
       { src: "/api/company", dest: "/api/company" },
       { src: "/api/state/companies/(?<companyId>[^/]+)/state", dest: "/api/state/companies/[companyId]/state" },
       { src: "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)", dest: "/v1/companies/[companyId]/operations/[operation]" },
+      { src: "/", dest: "/index" },
       { src: "/(.*)", dest: "/__server" }
     ] }));
     const matched = await routeGovernedDynamicsThroughServer(configPath);
@@ -88,8 +92,28 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     assert.equal(config.routes[1].dest, "/__server");
     assert.equal(config.routes[2].handle, "filesystem");
     assert.equal(config.routes[3].dest, "/api/company");
+    assert.equal(config.routes.find(route => route.src === "/").dest, "/index.html");
     await assert.rejects(access(stateFunction));
     await assert.rejects(access(operationFunction));
+  } finally {
+    await rm(output, { recursive: true, force: true });
+  }
+});
+
+test("Vercel routing fails closed when the packaged OmniSeed OS interface is absent", async () => {
+  const output = await mkdtemp(join(tmpdir(), "omniseed-os-vercel-root-"));
+  try {
+    const configPath = join(output, "config.json");
+    await writeFile(configPath, JSON.stringify({ version: 3, routes: [
+      { handle: "filesystem" },
+      { src: "/api/state/companies/(?<companyId>[^/]+)/state", dest: "/api/state/companies/[companyId]/state" },
+      { src: "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)", dest: "/v1/companies/[companyId]/operations/[operation]" },
+      { src: "/", dest: "/index" }
+    ] }));
+    await assert.rejects(
+      routeGovernedDynamicsThroughServer(configPath),
+      /Expected the generated OmniSeed OS interface/
+    );
   } finally {
     await rm(output, { recursive: true, force: true });
   }
