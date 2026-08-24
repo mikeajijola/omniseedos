@@ -6,6 +6,11 @@ const governedDynamicRoutes = [
   "/v1/companies/"
 ];
 
+const operatorOperationRoute = {
+  src: "/api/operations/(?<operation>[^/]+)",
+  dest: "/__server"
+};
+
 const generatedFunctionsToRemove = [
   join("index.func"),
   join("api", "state", "companies", "[companyId]", "state.func"),
@@ -48,8 +53,8 @@ export async function routeGovernedDynamicsThroughServer(configPath) {
   await Promise.all(generatedFunctionsToRemove.map(path => rm(join(functionsRoot, path), { recursive: true, force: true })));
   const remainingRoutes = config.routes.filter(route => !matchedRoutes.includes(route) && !rootRoutes.includes(route));
   const filesystemIndex = remainingRoutes.findIndex(route => route.handle === "filesystem");
-  remainingRoutes.splice(filesystemIndex < 0 ? 0 : filesystemIndex, 0, ...matchedRoutes);
+  remainingRoutes.splice(filesystemIndex < 0 ? 0 : filesystemIndex, 0, ...matchedRoutes, operatorOperationRoute);
   config.routes = remainingRoutes;
   await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
-  return matched;
+  return [...matched, operatorOperationRoute.src];
 }
