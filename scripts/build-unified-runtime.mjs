@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { embedOmniformSchema } from "./embed-omniform-schema.mjs";
 import { routeGovernedDynamicsThroughServer } from "./fix-vercel-routes.mjs";
+import { configureVercelRuntime } from "./configure-vercel-runtime.mjs";
 
 const run = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,6 +24,7 @@ export async function assembleUnifiedRuntime() {
     schemaPath: resolve(root, "node_modules/@omniseed/omniform/schema/omniform.schema.json")
   });
   if (process.env.VERCEL) {
+    await configureVercelRuntime(resolve(root, ".vercel/output/functions"));
     await routeGovernedDynamicsThroughServer(resolve(root, ".vercel/output/config.json"));
   }
 }
