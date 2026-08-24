@@ -93,6 +93,7 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     assert.equal(config.routes[2].handle, "filesystem");
     assert.equal(config.routes[3].dest, "/api/company");
     assert.equal(config.routes.find(route => route.src === "/").dest, "/index.html");
+    assert.equal(config.overrides["index.html"].path, "");
     await assert.rejects(access(stateFunction));
     await assert.rejects(access(operationFunction));
   } finally {
