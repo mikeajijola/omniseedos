@@ -19,6 +19,13 @@ export async function routeGovernedDynamicsThroughServer(configPath) {
   if (!osIndex?.includes("<title>OmniSeed OS</title>")) {
     throw new Error(`Expected the generated OmniSeed OS interface at ${osIndexPath}`);
   }
+  config.overrides = {
+    ...(config.overrides ?? {}),
+    "index.html": {
+      ...(config.overrides?.["index.html"] ?? {}),
+      path: ""
+    }
+  };
 
   const rootRoutes = (config.routes ?? []).filter(route => route.src === "/");
   if (rootRoutes.length !== 1) {
