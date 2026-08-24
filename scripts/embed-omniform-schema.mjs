@@ -4,24 +4,23 @@ import { resolve } from "node:path";
 const schemaLoader = 'const schema = JSON.parse(readFileSync(new URL("../schema/omniform.schema.json", import.meta.url), "utf8"));';
 
 export async function embedOmniformSchema({ serverRoot, schemaPath }) {
-  const libraries = resolve(serverRoot, "_libs");
   const schema = JSON.parse(await readFile(schemaPath, "utf8"));
   const matches = [];
 
-  for (const path of await moduleFiles(libraries)) {
+  for (const path of await moduleFiles(serverRoot)) {
     const source = await readFile(path, "utf8");
     const occurrences = source.split(schemaLoader).length - 1;
     if (occurrences > 0) matches.push({ path, source, occurrences });
   }
 
   const occurrences = matches.reduce((total, match) => total + match.occurrences, 0);
-  if (occurrences !== 1) {
-    throw new Error(`Expected exactly one bundled Omniform schema loader, found ${occurrences}`);
+  if (occurrences < 1) {
+    throw new Error("Expected at least one bundled Omniform schema loader");
   }
 
-  const [match] = matches;
-  await writeFile(match.path, match.source.replace(schemaLoader, `const schema = ${JSON.stringify(schema)};`));
-  return { bundle: match.path, schemaId: schema.$id };
+  const embedded = `const schema = ${JSON.stringify(schema)};`;
+  for (const match of matches) await writeFile(match.path, match.source.replaceAll(schemaLoader, embedded));
+  return { bundle: matches[0].path, bundles: matches.map(match => match.path), occurrences, schemaId: schema.$id };
 }
 
 async function moduleFiles(directory) {

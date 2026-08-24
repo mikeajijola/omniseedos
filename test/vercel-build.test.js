@@ -35,17 +35,26 @@ test("Vercel bundle embeds the Omniform schema instead of depending on an omitte
   const output = await mkdtemp(join(tmpdir(), "omniseed-os-schema-bundle-"));
   try {
     const libraries = join(output, "server", "_libs");
+    const flowLibraries = join(output, "flow", "_libs");
     const schemaPath = join(output, "omniform.schema.json");
     const bundlePath = join(libraries, "@omniseed", "engine.mjs");
+    const flowBundlePath = join(flowLibraries, "@omniseed", "engine.mjs");
     await mkdir(join(libraries, "@omniseed"), { recursive: true });
+    await mkdir(join(flowLibraries, "@omniseed"), { recursive: true });
     await writeFile(schemaPath, JSON.stringify({ $id: "omniform:test", type: "object" }));
     await writeFile(bundlePath, 'const schema = JSON.parse(readFileSync(new URL("../schema/omniform.schema.json", import.meta.url), "utf8"));\n');
+    await writeFile(flowBundlePath, 'const schema = JSON.parse(readFileSync(new URL("../schema/omniform.schema.json", import.meta.url), "utf8"));\n');
 
-    const result = await embedOmniformSchema({ serverRoot: join(output, "server"), schemaPath });
+    const result = await embedOmniformSchema({ serverRoot: output, schemaPath });
     const bundle = await readFile(bundlePath, "utf8");
+    const flowBundle = await readFile(flowBundlePath, "utf8");
     assert.equal(result.schemaId, "omniform:test");
+    assert.equal(result.occurrences, 2);
+    assert.equal(result.bundles.length, 2);
     assert.match(bundle, /const schema = \{"\$id":"omniform:test","type":"object"\};/);
+    assert.match(flowBundle, /const schema = \{"\$id":"omniform:test","type":"object"\};/);
     assert.doesNotMatch(bundle, /readFileSync|omniform\.schema\.json/);
+    assert.doesNotMatch(flowBundle, /readFileSync|omniform\.schema\.json/);
   } finally {
     await rm(output, { recursive: true, force: true });
   }

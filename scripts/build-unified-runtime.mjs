@@ -19,7 +19,7 @@ export async function assembleUnifiedRuntime() {
   await cp(resolve(root, "runtime-assembly/omniseed-os.ts"), resolve(agent, "channels/omniseed-os.ts"));
   await run(resolve(root, "node_modules/.bin/eve"), ["build"], { cwd: root, env: process.env });
   await embedOmniformSchema({
-    serverRoot: resolve(root, process.env.VERCEL ? ".vercel/output/functions/__server.func" : ".output/server"),
+    serverRoot: resolve(root, process.env.VERCEL ? ".vercel/output/functions" : ".output/server"),
     schemaPath: resolve(root, "node_modules/@omniseed/omniform/schema/omniform.schema.json")
   });
   if (process.env.VERCEL) {
