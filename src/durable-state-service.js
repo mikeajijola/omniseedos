@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-const route = /^\/api\/state\/companies\/([^/]+)\/state$/;
+const route = /^\/api\/state\/companies\/([^/]+)\/(state|work)$/;
 
 export function createDurableStateService({ query, token }) {
   if (typeof query !== "function" || !token) throw new Error("Durable state service requires a database query function and server token.");
@@ -17,9 +17,11 @@ export function createDurableStateService({ query, token }) {
     if (!match) return null;
     if (!authorized(headers.authorization, token)) return result(401, { error: "unauthorized" });
     const companyId = decodeURIComponent(match[1]);
+    const documentKind = match[2];
+    const storageId = documentKind === "state" ? companyId : `${companyId}:company-work`;
     await initialize();
     if (method === "GET") {
-      const rows = await query("SELECT payload FROM omniseed_company_state WHERE company_id = $1", [companyId]);
+      const rows = await query("SELECT payload FROM omniseed_company_state WHERE company_id = $1", [storageId]);
       return rows.length ? result(200, rows[0].payload) : result(404, { error: "not_found" });
     }
     if (method === "PUT") {
@@ -35,7 +37,7 @@ export function createDurableStateService({ query, token }) {
         INSERT INTO omniseed_company_state (company_id, version, payload)
         SELECT $1, $3, $4::jsonb WHERE $2 = 0
         ON CONFLICT (company_id) DO NOTHING RETURNING payload
-      ) SELECT payload FROM updated UNION ALL SELECT payload FROM inserted`, [companyId, expected, expected + 1, JSON.stringify(next)]);
+      ) SELECT payload FROM updated UNION ALL SELECT payload FROM inserted`, [storageId, expected, expected + 1, JSON.stringify(next)]);
       return rows.length ? result(200, rows[0].payload) : result(412, { error: "state_conflict" });
     }
     return result(405, { error: "method_not_allowed" });

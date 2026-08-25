@@ -1,0 +1,10 @@
+.work .section-title { margin-top: 28px; }
+.timeline { border-left: 2px solid var(--line); margin: 18px 0 0 7px; padding-left: 22px; }
+.timeline article { position: relative; padding: 0 0 20px; }
+.timeline article::before { content: ""; position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #8ca096; left: -28px; top: 5px; }
+.timeline article.operation_result::before,
+.timeline article.assistant_message::before { background: var(--green); }
+.timeline strong { font-size: 13px; }
+.timeline p { margin: 5px 0; color: #4f5e54; line-height: 1.5; }
+.timeline small { color: #849087; }
+#work-status { text-transform: capitalize; color: #496052; }

@@ -1,9 +1,10 @@
 import { parseOmniform } from "@omniseed/omniform";
-import { MemoryStateStore, OmniSeed, ProviderGitCompanyRepository, ProviderRegistry } from "@omniseed/engine";
+import { HttpCompanyWorkStore, MemoryCompanyWorkStore, MemoryStateStore, OmniSeed, ProviderGitCompanyRepository, ProviderRegistry } from "@omniseed/engine";
 import { GitHubProvider } from "@omniseed/provider-github-reference";
 import { createBearerIdentityResolver, createOmniSeedOsHandler, resolveDeclaredActorAuthorization } from "./app.js";
 import { DurableHttpStateStore } from "./durable-http-store.js";
 import { createDeclaredStewardClient } from "./declared-steward.js";
+import { CompanyWorkController } from "./company-work-controller.js";
 
 export function restoreVercelApiPath(request) {
   const path = request?.query?.path;
@@ -38,13 +39,15 @@ export async function createVercelRuntime({ env = process.env, fetchImpl = fetch
     repository = new ProviderGitCompanyRepository({ provider: providers.require("github") });
   }
   const store = inspectionMode ? new MemoryStateStore() : new DurableHttpStateStore({ endpoint: env.OMNISEED_STATE_ENDPOINT, token: env.OMNISEED_STATE_TOKEN, fetchImpl });
+  const workStore = inspectionMode ? new MemoryCompanyWorkStore() : new HttpCompanyWorkStore({ endpoint: env.OMNISEED_STATE_ENDPOINT, token: env.OMNISEED_STATE_TOKEN, fetchImpl });
   const binding = { desiredRevision: env.OMNISEED_DESIRED_REVISION, environment: inspectionMode ? `${env.OMNISEED_ENVIRONMENT ?? "production"}-read-only-inspection` : env.OMNISEED_ENVIRONMENT ?? "production", deployment: { id: env.VERCEL_DEPLOYMENT_ID ?? env.VERCEL_URL ?? "unresolved", provider: "vercel" } };
-  const engine = new OmniSeed({ store, providers, companyRepository: repository, binding });
+  const engine = new OmniSeed({ store, workStore, providers, companyRepository: repository, binding });
   const authenticate = createBearerIdentityResolver({ operatorToken: env.OMNISEED_OPERATOR_TOKEN, operator: { role: "operator", authorization: { actorId: env.OMNISEED_OPERATOR_ACTOR_ID ?? "operator", permissions: ["company.read", "capability.read", "plan.create", "plan.approve", "plan.apply", "company_search.read", "company_change.propose", "company_change.read", "company_change.approve", "company_change.apply", "company_change.merge"] } } });
   const stewardAuthorization = resolveDeclaredActorAuthorization(declaration, env.OMNISEED_STEWARD_ACTOR_ID);
   if (!stewardAuthorization) throw new Error("Configured steward is not a declared Agent resource.");
   const operationAuthenticate = createBearerIdentityResolver({ operatorToken: env.OMNISEED_OPERATION_TOKEN, operator: { role: "agent", authorization: stewardAuthorization } });
   const declaredSteward = steward ?? createDeclaredStewardClient({ declaration, actorId: env.OMNISEED_STEWARD_ACTOR_ID, env, fetchImpl });
+  const companyWork = typeof declaredSteward.start === "function" ? new CompanyWorkController({ engine, declaration, steward: declaredSteward, authorization: stewardAuthorization }) : null;
   const allowAnonymousStewardChat = env.OMNISEED_PUBLIC_STEWARD_CHAT === "true";
   return {
     declaration,
@@ -52,7 +55,8 @@ export async function createVercelRuntime({ env = process.env, fetchImpl = fetch
     inspectionMode,
     allowAnonymousStewardChat,
     handleSteward: message => declaredSteward.handle({ message, engine, declaration, authorization: stewardAuthorization }),
-    handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward, allowAnonymousStewardChat })
+    companyWork,
+    handler: createOmniSeedOsHandler({ engine, declaration, authenticate, operationAuthenticate, stewardAuthorization, steward: declaredSteward, companyWork, allowAnonymousStewardChat })
   };
 }
 

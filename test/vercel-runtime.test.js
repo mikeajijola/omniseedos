@@ -4,6 +4,7 @@ import { DurableHttpStateStore } from "../src/durable-http-store.js";
 import { SemanticStewardClient } from "../src/semantic-steward.js";
 import { createDeclaredStewardClient, signSessionToken } from "../src/declared-steward.js";
 import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
+import { projectEveEvent } from "../src/company-work-controller.js";
 
 const company = `apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -115,7 +116,7 @@ test("declared steward adapter signs a scoped short-lived token and consumes Eve
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     calls.push({ url: String(url), init });
-    if (String(url).endsWith("/eve/v1/session")) return Response.json({ ok: true, sessionId: "ses_1" });
+    if (String(url).endsWith("/eve/v1/session")) return Response.json({ ok: true, sessionId: "ses_1", continuationToken: "eve:start" });
     return new Response([
       JSON.stringify({ type: "message.appended", meta: { turnId: "turn_1" }, data: { messageDelta: "OmniSeed " } }),
       JSON.stringify({ type: "message.appended", meta: { turnId: "turn_1" }, data: { messageDelta: "Ecosystem" } }),
@@ -137,6 +138,41 @@ test("declared steward adapter signs a scoped short-lived token and consumes Eve
   assert.deepEqual({ iss: payload.iss, aud: payload.aud, sub: payload.sub, company_ref: payload.company_ref, exp: payload.exp - payload.iat }, { iss: "omniseed", aud: "omniseed-lily", sub: "omniseed-os:omniseed_ecosystem", company_ref: "omniseed_ecosystem", exp: 300 });
   assert.equal(calls[1].init.headers.authorization, calls[0].init.headers.authorization);
   assert.doesNotMatch(JSON.stringify(answer), /session-secret|continuationToken/);
+});
+
+test("declared steward adapter continues one Eve session and catches up from a durable cursor", async () => {
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (String(url).endsWith("/eve/v1/session")) return Response.json({ ok: true, sessionId: "ses_1", continuationToken: "eve:first" });
+    if (String(url).endsWith("/eve/v1/session/ses_1") && init.method === "POST") return Response.json({ ok: true, sessionId: "ses_1", continuationToken: "eve:second" });
+    if (String(url).includes("/stream?")) return new Response(JSON.stringify({ type: "session.waiting", meta: { id: "evt_1", at: "2026-08-25T00:00:00.000Z" }, data: { continuationToken: "eve:second" } }), { headers: { "content-type": "application/x-ndjson", "x-eve-stream-tail-index": "4" } });
+    if (String(url).endsWith("/cancel")) return Response.json({ ok: true, sessionId: "ses_1", status: "accepted" });
+    throw new Error(`Unexpected ${url}`);
+  };
+  const declaration = (await createVercelRuntime({ env: runtimeEnv(), fetchImpl: async url => {
+    if (String(url).includes("raw.githubusercontent.com")) return new Response(company);
+    if (String(url).includes("state.example.test")) return new Response(null, { status: 404 });
+    throw new Error(`Unexpected URL ${url}`);
+  }, githubProvider: fakeGitHubProvider(), steward: { handle: async () => ({}) } })).declaration;
+  const client = createDeclaredStewardClient({ declaration, actorId: "lily", env: runtimeEnv(), fetchImpl });
+  const started = await client.start({ message: "Inspect company" });
+  const continued = await client.continue({ sessionId: started.sessionId, continuationToken: started.continuationToken, message: "Continue" });
+  const batch = await client.read({ sessionId: continued.sessionId, streamIndex: 4 });
+  assert.equal(continued.continuationToken, "eve:second");
+  assert.equal(batch.streamIndex, 5);
+  assert.equal(batch.continuationToken, "eve:second");
+  assert.equal(batch.tailIndex, 4);
+  assert.match(calls.find(item => item.url.includes("/stream?")).url, /startIndex=4&includeTailIndex=1/);
+  assert.deepEqual(JSON.parse(calls.find(item => item.url.endsWith("/ses_1")).init.body), { continuationToken: "eve:first", message: "Continue" });
+});
+
+test("Eve event projection exposes operations and messages without hidden reasoning or tool payloads", () => {
+  const action = projectEveEvent({ type: "actions.requested", meta: { id: "evt_1", at: "2026-08-25T00:00:00.000Z" }, data: { actions: [{ kind: "tool-call", callId: "call_1", toolName: "generate_plan", input: { secret: "not-projected" } }] } }, "ses_1", 0);
+  assert.equal(action.operationId, "generate_plan");
+  assert.doesNotMatch(JSON.stringify(action), /not-projected/);
+  const reasoning = projectEveEvent({ type: "reasoning.appended", meta: { id: "evt_2" }, data: { reasoningDelta: "private chain" } }, "ses_1", 1);
+  assert.doesNotMatch(JSON.stringify(reasoning), /private chain/);
 });
 
 test("declared steward runtime fails closed for missing config, insecure endpoints, and weak secrets", () => {
