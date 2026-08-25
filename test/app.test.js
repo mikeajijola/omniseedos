@@ -51,7 +51,7 @@ test("distribution manifests use versioned packages, not sibling repositories", 
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.14");
   assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.5");
-  assert.equal(manifest.version, "1.0.0-alpha.25");
+  assert.equal(manifest.version, "1.0.0-alpha.26");
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 

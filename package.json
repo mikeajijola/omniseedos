@@ -1,6 +1,6 @@
 {
   "name": "@omniseed/os",
-  "version": "1.0.0-alpha.25",
+  "version": "1.0.0-alpha.26",
   "description": "Per-company operating environment for OmniSeed.",
   "repository": {
     "type": "git",
@@ -26,7 +26,7 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
     "@omniseed/engine": "1.0.0-alpha.14",
-    "@omniseed/lily": "https://github.com/mikeajijola/omniseed-lily/archive/f934827e8d3bc6836e2358c7122cc0d9c5b491dd.tar.gz",
+    "@omniseed/lily": "https://github.com/mikeajijola/omniseed-lily/archive/119158ae6dbcef3bd2fd9db58a75060520e7c34b.tar.gz",
     "@omniseed/omniform": "1.0.0-alpha.5",
     "@omniseed/provider-github-reference": "https://github.com/mikeajijola/omniseed-provider-github/archive/7ea6cbfbb04ae3bdc1d8e9709eb82d91f885dadc.tar.gz"
   },
