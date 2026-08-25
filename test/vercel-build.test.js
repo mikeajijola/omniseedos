@@ -34,6 +34,11 @@ test("production runtime composition pins Lily and emits one Eve-hosted Vercel a
   assert.match(assembly, /\/api\/company/);
   assert.match(assembly, /\/v1\/companies/);
   assert.match(assembly, /\/api\/operations\/:operation/);
+  assert.match(assembly, /POST\("\/api\/lily", dispatch\)/);
+  assert.match(assembly, /GET\("\/api\/lily\/:workRunId", dispatch\)/);
+  assert.match(assembly, /POST\("\/api\/lily\/:workRunId\/messages", dispatch\)/);
+  assert.match(assembly, /POST\("\/api\/lily\/:workRunId\/cancel", dispatch\)/);
+  assert.doesNotMatch(assembly, /handleSteward|streamStewardResult/);
 });
 
 test("Vercel bundle embeds the Omniform schema instead of depending on an omitted runtime file", async () => {
