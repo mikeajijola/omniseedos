@@ -2,6 +2,9 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const governedDynamicRoutes = [
+  "/api/lily/(?<workRunId>[^/]+)",
+  "/api/lily/(?<workRunId>[^/]+)/messages",
+  "/api/lily/(?<workRunId>[^/]+)/cancel",
   "/api/state/companies/(?<companyId>[^/]+)/state",
   "/api/state/companies/(?<companyId>[^/]+)/work",
   "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)"
@@ -14,6 +17,9 @@ const operatorOperationRoute = {
 
 const generatedFunctionsToRemove = [
   join("index.func"),
+  join("api", "lily", "[workRunId].func"),
+  join("api", "lily", "[workRunId]", "messages.func"),
+  join("api", "lily", "[workRunId]", "cancel.func"),
   join("api", "state", "companies", "[companyId]", "state.func"),
   join("api", "state", "companies", "[companyId]", "work.func"),
   join("v1", "companies", "[companyId]", "operations", "[operation].func")
