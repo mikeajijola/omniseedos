@@ -1,6 +1,6 @@
 {
   "name": "@omniseed/os",
-  "version": "1.0.0-alpha.28",
+  "version": "1.0.0-alpha.29",
   "description": "Per-company operating environment for OmniSeed.",
   "repository": {
     "type": "git",
@@ -28,7 +28,7 @@
     "@omniseed/engine": "1.0.0-alpha.16",
     "@omniseed/lily": "https://github.com/mikeajijola/omniseed-lily/archive/119158ae6dbcef3bd2fd9db58a75060520e7c34b.tar.gz",
     "@omniseed/omniform": "1.0.0-alpha.5",
-    "@omniseed/provider-github-reference": "https://github.com/mikeajijola/omniseed-provider-github/archive/7ea6cbfbb04ae3bdc1d8e9709eb82d91f885dadc.tar.gz"
+    "@omniseed/provider-github-reference": "https://github.com/mikeajijola/omniseed-provider-github/archive/d6ef8ee106ff1bd5a2ffae5adcb330f9ae723f94.tar.gz"
   },
   "engines": {
     "node": ">=22"
