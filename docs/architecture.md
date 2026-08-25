@@ -2,16 +2,17 @@
 
 One process serves one company by default, but the company exists independently of this optional interface. The company's declaration path, state path, Git revision binding, provider map and runtime registry are explicit deployment inputs. Every screen and steward response reads the engine's compiled capability registry. Provider and capability gaps are projected as structured runtime truth.
 
-The UI follows the ecosystem's authoritative [Provider semantics](https://github.com/mikeajijola/omniseed-ecosystem/blob/main/docs/provider-semantics.md). It labels the supplying organisation as Provider and presents products, services, frameworks, SDKs, and features as implementation detail beneath that Provider. Thus Lily is an Agent implemented using Eve with Vercel as Provider; Eve is not a Provider.
+The UI follows the ecosystem's authoritative [Provider semantics](https://github.com/mikeajijola/omniseed-ecosystem/blob/main/docs/provider-semantics.md). It labels the supplying organisation as Provider and presents products, services, frameworks, SDKs, and features as implementation detail beneath that Provider. It projects inference separately from agency: Lily remains the Agent actor, Google may supply a Gemini inference Resource, LiteLLM may implement the integration, and Vercel may host the runtime. Neither Gemini nor LiteLLM becomes a Provider.
 
 ## Shared production runtime
 
 The production Vercel adapter emits one immutable runtime artifact containing
-the OS interface and the declared Eve-backed Lily implementation. The build
-retrieves Lily from an exact Git commit archive, never from a sibling checkout
-or branch tip. Vercel is the single supplying Provider and project boundary.
-Lily's Agent resource and the OS connector resource remain separate company
-primitives even when their observed deployment ID is shared.
+the OS interface and the declared Lily implementation. The build retrieves
+Lily from an exact Git commit archive, never from a sibling checkout or branch
+tip. Vercel supplies the hosting/project boundary; a separately selected
+inference Provider supplies model inference. Lily's Agent resource, inference
+resource, and OS connector resource remain separate company primitives even
+when the Agent and interface share one observed deployment ID.
 
 ## Repository map
 
@@ -27,7 +28,7 @@ The browser may request a plan, but apply requires explicit approval and is dele
 
 The production Lily surface is a durable company-work timeline, not a request/response chatbot. OS starts or resumes the declared steward's Eve session, reads the durable event stream from a saved cursor, and asks OmniSeed to persist only safe operational projections. Raw reasoning and continuation credentials never reach the browser.
 
-Eve owns semantic execution state. OmniSeed owns company intent, operation history, governance pauses, plans, proposals, Provider actions, observations, and evidence. Git remains desired-state authority. OS polling catches up a bounded Eve stream and may wake the same session after OmniSeed observes an independent exact approval; it does not approve, alter a plan, or call a Provider.
+The selected Agent-loop implementation owns semantic execution state. OmniSeed owns company intent, operation history, governance pauses, plans, proposals, Provider actions, observations, and evidence. Git remains desired-state authority. OS polling catches up a bounded runtime stream and may wake the same session after OmniSeed observes an independent exact approval; it does not approve, alter a plan, or call a Provider.
 
 The browser receives a stable work-run ID immediately, then reads the Engine-owned timeline. Refresh and deployment do not discard work because the work record, Eve session ID, continuation token, and absolute stream cursor are durable server state. Only the safe session ID/cursor projection is displayed.
 

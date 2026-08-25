@@ -47,11 +47,58 @@ test("OS projects provider gaps and enforces authorization", async t => {
   assert.equal(rejected.status, 403);
 });
 
+test("OS projects inference independently from the declared steward Agent", async t => {
+  const company = parseOmniform(`apiVersion: omniform.org/v1alpha1
+kind: Company
+metadata: { id: example, name: Example }
+spec:
+  providers:
+    agents: { provider: company_runtime }
+    inference: { provider: google }
+  capabilities:
+    - id: company_stewardship
+      name: Company Stewardship
+      requires:
+        - { id: stewardship_agency, primitiveFamily: agents }
+        - { id: language_reasoning, primitiveFamily: inference }
+      realisations: [lily_stewardship]
+  realisations:
+    - id: lily_stewardship
+      name: Lily stewardship
+      capability: company_stewardship
+      participants:
+        - { resource: lily, role: steward, supplies: [stewardship_agency] }
+        - { resource: lily_inference, supplies: [language_reasoning] }
+  resources:
+    agents:
+      - { id: lily, name: Lily, offers: [stewardship_agency], spec: { implementation: { framework: LiteLLM } } }
+    inference:
+      - { id: lily_inference, name: Lily inference, provider: google, offers: [language_reasoning], spec: { product: Gemini API, model: gemini-2.5-flash } }
+  operations:
+    - { id: inspect_company, capability: company_stewardship, description: Inspect company, input: {}, output: {}, mutation: false, permissions: [company.read], approval: none, interfaces: [agent, api, ui] }
+`);
+  const providers = new ProviderRegistry()
+    .register(new ReferenceProvider({ id: "company_runtime", families: ["agents"] }))
+    .register(new ReferenceProvider({ id: "google", families: ["inference"] }));
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers });
+  const actor = { actorId: "owner", permissions: ["plan.create", "plan.approve", "plan.apply"] };
+  const plan = await engine.plan(company, actor);
+  await engine.apply(company, plan, await engine.approve(plan, plan.actions.map(item => item.id), actor), actor);
+  const server = createOmniSeedOs({ engine, declaration: company });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const projection = await fetch(`http://127.0.0.1:${server.address().port}/api/company`).then(response => response.json());
+  const participants = projection.realisations[0].participants;
+  assert.equal(participants.find(item => item.family === "agents").resource, "lily");
+  assert.equal(participants.find(item => item.family === "inference").provider, "google");
+  assert.equal(participants.find(item => item.family === "inference").observed.status, "healthy");
+  assert.equal(participants.find(item => item.family === "inference").evidence[0].source, "google");
+});
+
 test("distribution manifests use versioned packages, not sibling repositories", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.18");
-  assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.5");
-  assert.equal(manifest.version, "1.0.0-alpha.32");
+  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.19");
+  assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.6");
+  assert.equal(manifest.version, "1.0.0-alpha.33");
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 
