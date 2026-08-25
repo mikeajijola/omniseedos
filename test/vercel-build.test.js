@@ -78,22 +78,34 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     const configPath = join(output, "config.json");
     const staticRoot = join(output, "static");
     const generatedRootFunction = join(output, "functions", "index.func");
+    const lilyFunction = join(output, "functions", "api", "lily", "[workRunId].func");
+    const lilyMessagesFunction = join(output, "functions", "api", "lily", "[workRunId]", "messages.func");
+    const lilyCancelFunction = join(output, "functions", "api", "lily", "[workRunId]", "cancel.func");
     const stateFunction = join(output, "functions", "api", "state", "companies", "[companyId]", "state.func");
     const workFunction = join(output, "functions", "api", "state", "companies", "[companyId]", "work.func");
     const operationFunction = join(output, "functions", "v1", "companies", "[companyId]", "operations", "[operation].func");
     await mkdir(staticRoot, { recursive: true });
     await mkdir(generatedRootFunction, { recursive: true });
+    await mkdir(lilyFunction, { recursive: true });
+    await mkdir(lilyMessagesFunction, { recursive: true });
+    await mkdir(lilyCancelFunction, { recursive: true });
     await mkdir(stateFunction, { recursive: true });
     await mkdir(workFunction, { recursive: true });
     await mkdir(operationFunction, { recursive: true });
     await writeFile(join(staticRoot, "index.html"), "<!doctype html><title>OmniSeed OS</title>\n");
     await writeFile(join(generatedRootFunction, "index.mjs"), "export default 'generated Eve root';\n");
+    await writeFile(join(lilyFunction, "index.mjs"), "export default 'generated duplicate';\n");
+    await writeFile(join(lilyMessagesFunction, "index.mjs"), "export default 'generated duplicate';\n");
+    await writeFile(join(lilyCancelFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(stateFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(workFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(operationFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(configPath, JSON.stringify({ version: 3, routes: [
       { handle: "filesystem" },
       { src: "/api/company", dest: "/api/company" },
+      { src: "/api/lily/(?<workRunId>[^/]+)", dest: "/api/lily/[workRunId]" },
+      { src: "/api/lily/(?<workRunId>[^/]+)/messages", dest: "/api/lily/[workRunId]/messages" },
+      { src: "/api/lily/(?<workRunId>[^/]+)/cancel", dest: "/api/lily/[workRunId]/cancel" },
       { src: "/api/state/companies/(?<companyId>[^/]+)/state", dest: "/api/state/companies/[companyId]/state" },
       { src: "/api/state/companies/(?<companyId>[^/]+)/work", dest: "/api/state/companies/[companyId]/work" },
       { src: "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)", dest: "/v1/companies/[companyId]/operations/[operation]" },
@@ -102,20 +114,29 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     ] }));
     const matched = await routeGovernedDynamicsThroughServer(configPath);
     const config = JSON.parse(await readFile(configPath, "utf8"));
-    assert.equal(matched.length, 4);
-    assert.match(config.routes[0].src, /^\/api\/state\/companies\//);
+    assert.equal(matched.length, 7);
+    assert.match(config.routes[0].src, /^\/api\/lily\//);
     assert.equal(config.routes[0].dest, "/__server");
-    assert.match(config.routes[1].src, /^\/api\/state\/companies\//);
+    assert.match(config.routes[1].src, /^\/api\/lily\//);
     assert.equal(config.routes[1].dest, "/__server");
-    assert.match(config.routes[2].src, /^\/v1\/companies\//);
+    assert.match(config.routes[2].src, /^\/api\/lily\//);
     assert.equal(config.routes[2].dest, "/__server");
-    assert.match(config.routes[3].src, /^\/api\/operations\//);
+    assert.match(config.routes[3].src, /^\/api\/state\/companies\//);
     assert.equal(config.routes[3].dest, "/__server");
-    assert.equal(config.routes[4].handle, "filesystem");
-    assert.equal(config.routes[5].dest, "/api/company");
+    assert.match(config.routes[4].src, /^\/api\/state\/companies\//);
+    assert.equal(config.routes[4].dest, "/__server");
+    assert.match(config.routes[5].src, /^\/v1\/companies\//);
+    assert.equal(config.routes[5].dest, "/__server");
+    assert.match(config.routes[6].src, /^\/api\/operations\//);
+    assert.equal(config.routes[6].dest, "/__server");
+    assert.equal(config.routes[7].handle, "filesystem");
+    assert.equal(config.routes[8].dest, "/api/company");
     assert.equal(config.routes.find(route => route.src === "/"), undefined);
     assert.equal(config.overrides["index.html"].path, "");
     await assert.rejects(access(generatedRootFunction));
+    await assert.rejects(access(lilyFunction));
+    await assert.rejects(access(lilyMessagesFunction));
+    await assert.rejects(access(lilyCancelFunction));
     await assert.rejects(access(stateFunction));
     await assert.rejects(access(workFunction));
     await assert.rejects(access(operationFunction));
