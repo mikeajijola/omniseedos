@@ -41,9 +41,9 @@ export class EveStewardClient {
     this.fetch = fetchImpl;
   }
 
-  async handle({ message = "" }) {
-    if (!String(message).trim()) return { status: "clarification_required", operationId: null, message: "What would you like the company steward to do?" };
-    const authorization = `Bearer ${await this.token()}`;
+  async start({ message = "" }) {
+    if (!String(message).trim()) throw Object.assign(new Error("What would you like the company steward to do?"), { code: "company_work_invalid" });
+    const authorization = await this.#authorization();
     const started = await this.fetch(this.endpoint, {
       method: "POST",
       redirect: "error",
@@ -52,27 +52,61 @@ export class EveStewardClient {
     });
     if (!started.ok) throw runtimeError("start", started.status);
     const accepted = await started.json();
-    if (!accepted?.ok || !accepted.sessionId) throw new Error("The declared Eve runtime did not accept a session.");
-    const stream = await this.fetch(`${this.endpoint}/${encodeURIComponent(accepted.sessionId)}/stream`, {
+    if (!accepted?.ok || !accepted.sessionId || !accepted.continuationToken) throw new Error("The declared Eve runtime did not return a durable session and continuation token.");
+    return { sessionId: accepted.sessionId, continuationToken: accepted.continuationToken, streamIndex: 0 };
+  }
+
+  async continue({ sessionId, continuationToken, message }) {
+    if (!sessionId || !continuationToken || !String(message ?? "").trim()) throw Object.assign(new Error("A durable Eve session, continuation token, and message are required."), { code: "company_work_invalid" });
+    const response = await this.fetch(`${this.endpoint}/${encodeURIComponent(sessionId)}`, {
+      method: "POST",
       redirect: "error",
-      headers: { accept: "application/x-ndjson", authorization }
+      headers: { accept: "application/json", authorization: await this.#authorization(), "content-type": "application/json" },
+      body: JSON.stringify({ continuationToken, message: String(message) })
+    });
+    if (!response.ok) throw runtimeError("continue", response.status);
+    const accepted = await response.json();
+    if (!accepted?.ok || accepted.sessionId !== sessionId) throw new Error("The declared Eve runtime did not continue the expected session.");
+    return { sessionId, continuationToken: accepted.continuationToken ?? continuationToken };
+  }
+
+  async read({ sessionId, streamIndex = 0 }) {
+    if (!sessionId || !Number.isSafeInteger(streamIndex) || streamIndex < 0) throw Object.assign(new Error("A durable Eve session and non-negative stream cursor are required."), { code: "company_work_invalid" });
+    const stream = await this.fetch(`${this.endpoint}/${encodeURIComponent(sessionId)}/stream?startIndex=${streamIndex}&includeTailIndex=1`, {
+      redirect: "error",
+      headers: { accept: "application/x-ndjson", authorization: await this.#authorization() }
     });
     if (!stream.ok) throw runtimeError("stream", stream.status);
     const events = parseNdjson(await stream.text());
-    const failed = events.find(item => item.type === "session.failed" || item.type === "turn.failed");
-    if (failed) throw new Error((failed.data?.error?.message ?? failed.data?.message ?? "The declared Eve runtime failed the turn."));
-    const deltas = events.filter(item => item.type === "message.appended").map(item => item.data?.messageDelta ?? "").join("");
-    const completed = [...events].reverse().find(item => item.type === "message.completed");
-    const messageText = deltas || completed?.data?.message;
-    if (!completed || !messageText) throw new Error("The declared Eve runtime ended without a completed assistant message.");
-    const turn = [...events].reverse().find(item => item.meta?.turnId || item.turnId);
-    return {
-      status: "completed",
-      operationId: null,
-      message: messageText.trim(),
-      runtime: { framework: "eve", sessionId: accepted.sessionId, turnId: turn?.meta?.turnId ?? turn?.turnId ?? null }
-    };
+    const continuation = [...events].reverse().find(item => item.type === "session.waiting")?.data?.continuationToken ?? null;
+    return { events, streamIndex: streamIndex + events.length, continuationToken: continuation, tailIndex: parseTailIndex(stream.headers.get("x-eve-stream-tail-index")) };
   }
+
+  async cancel({ sessionId, turnId = null }) {
+    if (!sessionId) throw Object.assign(new Error("A durable Eve session is required."), { code: "company_work_invalid" });
+    const response = await this.fetch(`${this.endpoint}/${encodeURIComponent(sessionId)}/cancel`, {
+      method: "POST",
+      redirect: "error",
+      headers: { accept: "application/json", authorization: await this.#authorization(), "content-type": "application/json" },
+      body: turnId ? JSON.stringify({ turnId }) : "{}"
+    });
+    if (!response.ok) throw runtimeError("cancel", response.status);
+    return response.json();
+  }
+
+  /** Compatibility helper for non-durable callers. Production OS uses start/read. */
+  async handle({ message = "" }) {
+    const session = await this.start({ message });
+    const batch = await this.read(session);
+    const failed = batch.events.find(item => item.type === "session.failed" || item.type === "turn.failed");
+    if (failed) throw new Error((failed.data?.error?.message ?? failed.data?.message ?? "The declared Eve runtime failed the turn."));
+    const completed = [...batch.events].reverse().find(item => item.type === "message.completed");
+    if (!completed?.data?.message) throw new Error("The declared Eve runtime ended without a completed assistant message.");
+    const turn = [...batch.events].reverse().find(item => item.meta?.turnId || item.data?.turnId);
+    return { status: "completed", operationId: null, message: completed.data.message.trim(), runtime: { framework: "eve", sessionId: session.sessionId, turnId: turn?.meta?.turnId ?? turn?.data?.turnId ?? null } };
+  }
+
+  async #authorization() { return `Bearer ${await this.token()}`; }
 }
 
 export function signSessionToken({ secret, issuer, audience, subject, companyId, now = () => Date.now(), nonce = randomUUID }) {
@@ -93,3 +127,4 @@ function parseNdjson(value) {
     catch { throw new Error("The declared Eve runtime returned an invalid session event."); }
   });
 }
+function parseTailIndex(value) { return typeof value === "string" && /^-?\d+$/.test(value) ? Number(value) : null; }

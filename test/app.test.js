@@ -49,9 +49,9 @@ test("OS projects provider gaps and enforces authorization", async t => {
 
 test("distribution manifests use versioned packages, not sibling repositories", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.13");
+  assert.equal(manifest.dependencies["@omniseed/engine"], "1.0.0-alpha.14");
   assert.equal(manifest.dependencies["@omniseed/omniform"], "1.0.0-alpha.5");
-  assert.equal(manifest.version, "1.0.0-alpha.24");
+  assert.equal(manifest.version, "1.0.0-alpha.25");
   assert.equal(Object.values(manifest.dependencies).some(value => value.startsWith("file:")), false);
 });
 
@@ -213,6 +213,26 @@ test("declared public steward chat needs no browser credential and grants no ope
   assert.equal((await answer.json()).message, "actor:lily");
   const plan = await fetch(`${base}/api/plan`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
   assert.equal(plan.status, 403);
+});
+
+test("durable Lily routes return work immediately and project the same Engine-owned timeline", async t => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const companyWork = {
+    start: async ({ intent, idempotencyKey }) => ({ id: "work_1", intent, idempotencyKey, status: "running", events: [] }),
+    inspect: async id => ({ id, status: "completed", events: [{ id: "e1", type: "assistant_message", summary: "Observed company state." }] }),
+    continue: async (id, message) => ({ id, status: "running", intent: message }),
+    cancel: async id => ({ id, status: "cancelled" }),
+  };
+  const server = createOmniSeedOs({ engine, declaration, authenticate, stewardAuthorization: { actorId: "lily", permissions: [] }, companyWork });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const started = await fetch(`${base}/api/lily`, { method: "POST", headers: { ...authorizedHeaders, "idempotency-key": "request-1" }, body: JSON.stringify({ message: "Operate company" }) });
+  assert.equal(started.status, 202);
+  assert.deepEqual(await started.json(), { id: "work_1", intent: "Operate company", idempotencyKey: "request-1", status: "running", events: [] });
+  const inspected = await fetch(`${base}/api/lily/work_1`, { headers: { authorization: `Bearer ${operatorToken}` } }).then(response => response.json());
+  assert.equal(inspected.events[0].type, "assistant_message");
+  assert.equal((await fetch(`${base}/api/lily/work_1/messages`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message: "Continue" }) })).status, 202);
+  assert.equal((await fetch(`${base}/api/lily/work_1/cancel`, { method: "POST", headers: authorizedHeaders, body: "{}" })).status, 200);
 });
 
 test("steward authority comes from the declared actor resource", () => {

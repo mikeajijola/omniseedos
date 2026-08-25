@@ -15,6 +15,7 @@ function fixture() {
 }
 
 const request = (method, body, version = 0, token = "x".repeat(32)) => ({ method, url: "/api/state/companies/omniseed_ecosystem/state", headers: { authorization: `Bearer ${token}`, "if-match": String(version) }, body });
+const workRequest = (method, body, version = 0) => ({ ...request(method, body, version), url: "/api/state/companies/omniseed_ecosystem/work" });
 
 test("durable state service requires authentication and preserves company isolation", async () => {
   const { service } = fixture();
@@ -33,4 +34,16 @@ test("durable state service atomically creates, loads, updates and rejects stale
   const updated = await service(request("PUT", { ...created.body, history: ["restart-safe"] }, 1));
   assert.equal(updated.status, 200); assert.equal(updated.body.version, 2);
   assert.deepEqual((await service(request("GET"))).body.history, ["restart-safe"]);
+});
+
+test("company work uses an independent CAS document so timeline writes do not advance reconciliation state", async () => {
+  const { service } = fixture();
+  const runtime = { companyId: "omniseed_ecosystem", version: 0, plans: [{ id: "plan_1" }] };
+  const work = { companyId: "omniseed_ecosystem", version: 0, runs: [{ id: "work_1" }] };
+  assert.equal((await service(request("PUT", runtime))).body.version, 1);
+  assert.equal((await service(workRequest("PUT", work))).body.version, 1);
+  assert.equal((await service(workRequest("PUT", { ...work, runs: [{ id: "work_1" }, { id: "work_2" }] }, 1))).body.version, 2);
+  const persistedRuntime = await service(request("GET"));
+  assert.equal(persistedRuntime.body.version, 1);
+  assert.deepEqual(persistedRuntime.body.plans, [{ id: "plan_1" }]);
 });

@@ -23,6 +23,14 @@ primitives even when their observed deployment ID is shared.
 
 The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. The declared steward, voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary. The UI discovers the stewardship realisation instead of hard-coding Lily.
 
+## Lily company work
+
+The production Lily surface is a durable company-work timeline, not a request/response chatbot. OS starts or resumes the declared steward's Eve session, reads the durable event stream from a saved cursor, and asks OmniSeed to persist only safe operational projections. Raw reasoning and continuation credentials never reach the browser.
+
+Eve owns semantic execution state. OmniSeed owns company intent, operation history, governance pauses, plans, proposals, Provider actions, observations, and evidence. Git remains desired-state authority. OS polling catches up a bounded Eve stream and may wake the same session after OmniSeed observes an independent exact approval; it does not approve, alter a plan, or call a Provider.
+
+The browser receives a stable work-run ID immediately, then reads the Engine-owned timeline. Refresh and deployment do not discard work because the work record, Eve session ID, continuation token, and absolute stream cursor are durable server state. Only the safe session ID/cursor projection is displayed.
+
 Reconciliation is projected like any other company Capability. Lily may invoke the declared `generate_plan` and `observe_company` operations when her company authority permits them; applying a non-empty plan still requires the exact persisted plan and a separate approval. The OS refreshes the Engine projection after a steward operation so plans, observations, evidence, and Activity remain one shared truth rather than chat-only state.
 
 Production installs versioned package artifacts. Sibling repository links are a development convenience only and are not part of the per-company deployment architecture.
@@ -40,7 +48,10 @@ Company Search is projected as the ordinary `company_search` Capability and gove
 | `POST /api/approve` | Bind approval to a plan and chosen actions | `engine.approve()` |
 | `POST /api/apply` | Apply the reviewed plan | `engine.apply()` |
 | `POST /api/search` | Search governed company knowledge | registered `search_company` operation |
-| `POST /api/lily` | Resolve a message against available operations | compiled operation registry |
+| `POST /api/lily` | Start durable company work with the declared steward | `start_company_work` and server-bound steward identity |
+| `GET /api/lily/{workRunId}` | Catch up Eve and inspect the safe task timeline | `get_company_work` |
+| `POST /api/lily/{workRunId}/messages` | Resume a waiting durable Agent session | `continue_company_work` |
+| `POST /api/lily/{workRunId}/cancel` | Cancel the current Eve turn and company work | `cancel_company_work` |
 | `POST /v1/companies/{companyId}/operations/{operationId}:invoke` | Invoke one declared governed operation | server-bound Agent identity |
 
 The OS forwards exact plan/approval objects. It does not reproduce engine policy. Authorization is derived on the server from an authenticated identity; authorization objects in request bodies are ignored. GET /api/company is the sole anonymous route and is read-only. The reference deployment uses minimum 32-character bearer tokens (`OMNISEED_OPERATOR_TOKEN` for the human boundary and `OMNISEED_OPERATION_TOKEN` for the Agent operation boundary). A production identity-provider adapter can replace those resolvers without changing OmniSeed operations. Steward permissions are resolved from the declared Agent resource's authority instead of runtime defaults.
