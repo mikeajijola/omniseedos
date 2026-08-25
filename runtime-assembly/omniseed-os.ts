@@ -41,6 +41,8 @@ export default defineChannel({
     POST("/api/operations/:operation", dispatch),
     GET("/api/state/companies/:companyId/state", dispatch),
     PUT("/api/state/companies/:companyId/state", dispatch),
+    GET("/api/state/companies/:companyId/work", dispatch),
+    PUT("/api/state/companies/:companyId/work", dispatch),
     POST("/v1/companies/:companyId/operations/:operation", dispatch)
   ]
 });

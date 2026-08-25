@@ -38,6 +38,8 @@ test("production runtime composition pins Lily and emits one Eve-hosted Vercel a
   assert.match(assembly, /GET\("\/api\/lily\/:workRunId", dispatch\)/);
   assert.match(assembly, /POST\("\/api\/lily\/:workRunId\/messages", dispatch\)/);
   assert.match(assembly, /POST\("\/api\/lily\/:workRunId\/cancel", dispatch\)/);
+  assert.match(assembly, /GET\("\/api\/state\/companies\/:companyId\/work", dispatch\)/);
+  assert.match(assembly, /PUT\("\/api\/state\/companies\/:companyId\/work", dispatch\)/);
   assert.doesNotMatch(assembly, /handleSteward|streamStewardResult/);
 });
 
@@ -77,38 +79,45 @@ test("Vercel sends governed dynamic operation and state paths to the real server
     const staticRoot = join(output, "static");
     const generatedRootFunction = join(output, "functions", "index.func");
     const stateFunction = join(output, "functions", "api", "state", "companies", "[companyId]", "state.func");
+    const workFunction = join(output, "functions", "api", "state", "companies", "[companyId]", "work.func");
     const operationFunction = join(output, "functions", "v1", "companies", "[companyId]", "operations", "[operation].func");
     await mkdir(staticRoot, { recursive: true });
     await mkdir(generatedRootFunction, { recursive: true });
     await mkdir(stateFunction, { recursive: true });
+    await mkdir(workFunction, { recursive: true });
     await mkdir(operationFunction, { recursive: true });
     await writeFile(join(staticRoot, "index.html"), "<!doctype html><title>OmniSeed OS</title>\n");
     await writeFile(join(generatedRootFunction, "index.mjs"), "export default 'generated Eve root';\n");
     await writeFile(join(stateFunction, "index.mjs"), "export default 'generated duplicate';\n");
+    await writeFile(join(workFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(join(operationFunction, "index.mjs"), "export default 'generated duplicate';\n");
     await writeFile(configPath, JSON.stringify({ version: 3, routes: [
       { handle: "filesystem" },
       { src: "/api/company", dest: "/api/company" },
       { src: "/api/state/companies/(?<companyId>[^/]+)/state", dest: "/api/state/companies/[companyId]/state" },
+      { src: "/api/state/companies/(?<companyId>[^/]+)/work", dest: "/api/state/companies/[companyId]/work" },
       { src: "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)", dest: "/v1/companies/[companyId]/operations/[operation]" },
       { src: "/", dest: "/index" },
       { src: "/(.*)", dest: "/__server" }
     ] }));
     const matched = await routeGovernedDynamicsThroughServer(configPath);
     const config = JSON.parse(await readFile(configPath, "utf8"));
-    assert.equal(matched.length, 3);
+    assert.equal(matched.length, 4);
     assert.match(config.routes[0].src, /^\/api\/state\/companies\//);
     assert.equal(config.routes[0].dest, "/__server");
-    assert.match(config.routes[1].src, /^\/v1\/companies\//);
+    assert.match(config.routes[1].src, /^\/api\/state\/companies\//);
     assert.equal(config.routes[1].dest, "/__server");
-    assert.match(config.routes[2].src, /^\/api\/operations\//);
+    assert.match(config.routes[2].src, /^\/v1\/companies\//);
     assert.equal(config.routes[2].dest, "/__server");
-    assert.equal(config.routes[3].handle, "filesystem");
-    assert.equal(config.routes[4].dest, "/api/company");
+    assert.match(config.routes[3].src, /^\/api\/operations\//);
+    assert.equal(config.routes[3].dest, "/__server");
+    assert.equal(config.routes[4].handle, "filesystem");
+    assert.equal(config.routes[5].dest, "/api/company");
     assert.equal(config.routes.find(route => route.src === "/"), undefined);
     assert.equal(config.overrides["index.html"].path, "");
     await assert.rejects(access(generatedRootFunction));
     await assert.rejects(access(stateFunction));
+    await assert.rejects(access(workFunction));
     await assert.rejects(access(operationFunction));
   } finally {
     await rm(output, { recursive: true, force: true });

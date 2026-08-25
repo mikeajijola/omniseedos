@@ -2,8 +2,9 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const governedDynamicRoutes = [
-  "/api/state/companies/",
-  "/v1/companies/"
+  "/api/state/companies/(?<companyId>[^/]+)/state",
+  "/api/state/companies/(?<companyId>[^/]+)/work",
+  "/v1/companies/(?<companyId>[^/]+)/operations/(?<operation>[^/]+)"
 ];
 
 const operatorOperationRoute = {
@@ -14,6 +15,7 @@ const operatorOperationRoute = {
 const generatedFunctionsToRemove = [
   join("index.func"),
   join("api", "state", "companies", "[companyId]", "state.func"),
+  join("api", "state", "companies", "[companyId]", "work.func"),
   join("v1", "companies", "[companyId]", "operations", "[operation].func")
 ];
 
@@ -41,7 +43,7 @@ export async function routeGovernedDynamicsThroughServer(configPath) {
   const matched = [];
   const matchedRoutes = [];
   for (const route of config.routes ?? []) {
-    if (!governedDynamicRoutes.some(prefix => route.src?.startsWith(prefix))) continue;
+    if (!governedDynamicRoutes.includes(route.src)) continue;
     route.dest = "/__server";
     matched.push(route.src);
     matchedRoutes.push(route);
