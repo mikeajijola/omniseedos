@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableHttpStateStore } from "../src/durable-http-store.js";
 import { SemanticStewardClient } from "../src/semantic-steward.js";
-import { createDeclaredStewardClient, signSessionToken } from "../src/declared-steward.js";
+import { createDeclaredStewardClient, EveStewardClient, signSessionToken } from "../src/declared-steward.js";
 import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
 import { projectEveEvent } from "../src/company-work-controller.js";
 
@@ -122,7 +122,7 @@ test("declared steward adapter signs a scoped short-lived token and consumes Eve
       JSON.stringify({ type: "message.appended", meta: { turnId: "turn_1" }, data: { messageDelta: "Ecosystem" } }),
       JSON.stringify({ type: "message.completed", meta: { turnId: "turn_1" }, data: { message: "OmniSeed Ecosystem" } }),
       JSON.stringify({ type: "session.waiting", data: { continuationToken: "not-returned" } })
-    ].join("\n"), { headers: { "content-type": "application/x-ndjson" } });
+    ].join("\n"), { headers: { "content-type": "application/x-ndjson", "x-eve-stream-tail-index": "3" } });
   };
   const declaration = (await createVercelRuntime({ env: runtimeEnv(), fetchImpl: async url => {
     if (String(url).includes("raw.githubusercontent.com")) return new Response(company);
@@ -165,6 +165,26 @@ test("declared steward adapter continues one Eve session and catches up from a d
   assert.equal(batch.tailIndex, 4);
   assert.match(calls.find(item => item.url.includes("/stream?")).url, /startIndex=4&includeTailIndex=1/);
   assert.deepEqual(JSON.parse(calls.find(item => item.url.endsWith("/ses_1")).init.body), { continuationToken: "eve:first", message: "Continue" });
+});
+
+test("declared steward catch-up stops at Eve's durable tail instead of following the live stream", async () => {
+  let cancelled = false;
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(`${JSON.stringify({ type: "turn.started", data: { turnId: "turn_1" } })}\n${JSON.stringify({ type: "message.received", data: { message: "Inspect" } })}\n`));
+    },
+    cancel() { cancelled = true; }
+  });
+  const client = new EveStewardClient({
+    endpoint: "https://lily.example.test/eve/v1/session",
+    token: async () => "token",
+    fetchImpl: async () => new Response(body, { headers: { "content-type": "application/x-ndjson", "x-eve-stream-tail-index": "1" } })
+  });
+  const batch = await client.read({ sessionId: "ses_1", streamIndex: 0 });
+  assert.equal(batch.events.length, 2);
+  assert.equal(batch.streamIndex, 2);
+  assert.equal(batch.tailIndex, 1);
+  assert.equal(cancelled, true);
 });
 
 test("Eve event projection exposes operations and messages without hidden reasoning or tool payloads", () => {

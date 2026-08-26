@@ -77,9 +77,11 @@ export class EveStewardClient {
       headers: { accept: "application/x-ndjson", authorization: await this.#authorization() }
     });
     if (!stream.ok) throw runtimeError("stream", stream.status);
-    const events = parseNdjson(await stream.text());
+    const tailIndex = parseTailIndex(stream.headers.get("x-eve-stream-tail-index"));
+    if (tailIndex === null) throw new Error("The declared Eve runtime did not report a durable stream tail.");
+    const events = await readBoundedNdjson(stream, { startIndex: streamIndex, tailIndex, maxEvents: 20 });
     const continuation = [...events].reverse().find(item => item.type === "session.waiting")?.data?.continuationToken ?? null;
-    return { events, streamIndex: streamIndex + events.length, continuationToken: continuation, tailIndex: parseTailIndex(stream.headers.get("x-eve-stream-tail-index")) };
+    return { events, streamIndex: streamIndex + events.length, continuationToken: continuation, tailIndex };
   }
 
   async cancel({ sessionId, turnId = null }) {
@@ -120,11 +122,40 @@ export function signSessionToken({ secret, issuer, audience, subject, companyId,
 
 function encode(value) { return Buffer.from(JSON.stringify(value)).toString("base64url"); }
 function runtimeError(stage, status) { return Object.assign(new Error(`The declared Eve runtime ${stage} request failed (${status}).`), { code: "steward_runtime_unavailable" }); }
-function parseNdjson(value) {
-  return String(value).split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
-    const payload = line.startsWith("data:") ? line.slice(5).trim() : line;
-    try { return JSON.parse(payload); }
-    catch { throw new Error("The declared Eve runtime returned an invalid session event."); }
-  });
+async function readBoundedNdjson(response, { startIndex, tailIndex, maxEvents }) {
+  const lastIndex = Math.min(tailIndex, startIndex + maxEvents - 1);
+  if (startIndex > lastIndex) {
+    await response.body?.cancel().catch(() => {});
+    return [];
+  }
+  if (!response.body) throw new Error("The declared Eve runtime returned no session event stream.");
+  const expected = lastIndex - startIndex + 1;
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  const events = [];
+  let buffer = "";
+  try {
+    while (events.length < expected) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      const lines = buffer.split(/\r?\n/);
+      buffer = done ? "" : lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        events.push(parseNdjsonLine(line));
+        if (events.length === expected) break;
+      }
+      if (done) break;
+    }
+    if (events.length < expected) throw new Error("The declared Eve runtime stream ended before its reported durable tail.");
+    return events;
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+function parseNdjsonLine(line) {
+  const value = line.trim(), payload = value.startsWith("data:") ? value.slice(5).trim() : value;
+  try { return JSON.parse(payload); }
+  catch { throw new Error("The declared Eve runtime returned an invalid session event."); }
 }
 function parseTailIndex(value) { return typeof value === "string" && /^-?\d+$/.test(value) ? Number(value) : null; }
