@@ -161,6 +161,12 @@ test("browser never claims an actor or permission set", async () => {
   const browser = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
   assert.doesNotMatch(browser, /JSON\.stringify\([^)]*authorization|permissions\s*:/);
   assert.match(browser, /authorization.*Bearer/);
+  assert.doesNotMatch(browser, /dataset\.executionClass/);
+  const submitHandler = browser.match(/\$\("#lily-form"\)\.addEventListener\("submit", async event => \{([\s\S]*?)\n\}\);\nfunction invokeSteward/)?.[1];
+  assert.ok(submitHandler, "Lily submit handler must remain present");
+  assert.match(submitHandler, /if \(response\.status === 202\) \{[\s\S]*?currentWork = result;[\s\S]*?renderWork\(result\);[\s\S]*?scheduleWorkPoll\(100\);/);
+  assert.match(submitHandler, /else \{[\s\S]*?currentWork = null;[\s\S]*?result\.message/);
+  assert.doesNotMatch(submitHandler, /await load\(\)/);
 });
 
 test("Lily and API expose provider-neutral Company Search without vendor calls", async t => {
@@ -330,11 +336,43 @@ test("durable Lily routes return work immediately and project the same Engine-ow
   const base = `http://127.0.0.1:${server.address().port}`;
   const started = await fetch(`${base}/api/lily`, { method: "POST", headers: { ...authorizedHeaders, "idempotency-key": "request-1" }, body: JSON.stringify({ message: "Operate company" }) });
   assert.equal(started.status, 202);
-  assert.deepEqual(await started.json(), { id: "work_1", intent: "Operate company", idempotencyKey: "request-1", status: "running", events: [] });
+  const startedBody = await started.json();
+  assert.deepEqual({ id: startedBody.id, intent: startedBody.intent, idempotencyKey: startedBody.idempotencyKey, status: startedBody.status, events: startedBody.events }, { id: "work_1", intent: "Operate company", idempotencyKey: "request-1", status: "running", events: [] });
+  assert.equal(startedBody.route.executionClass, "company_work");
   const inspected = await fetch(`${base}/api/lily/work_1`, { headers: { authorization: `Bearer ${operatorToken}` } }).then(response => response.json());
   assert.equal(inspected.events[0].type, "assistant_message");
   assert.equal((await fetch(`${base}/api/lily/work_1/messages`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message: "Continue" }) })).status, 202);
   assert.equal((await fetch(`${base}/api/lily/work_1/cancel`, { method: "POST", headers: authorizedHeaders, body: "{}" })).status, 200);
+});
+
+test("production durable Lily work handles conversation, company-query, and company-work turns", async t => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const starts = [];
+  const companyWork = { start: async input => { starts.push(input); return { id: "work_1", status: "running" }; } };
+  const calls = [];
+  const steward = { handle: async input => { calls.push(input); return { status: "completed", message: "non-durable answer" }; } };
+  const server = createOmniSeedOs({ engine, declaration, authenticate, stewardAuthorization: { actorId: "lily", permissions: ["company.read"] }, companyWork, steward });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const messages = ["hi", "What needs attention?", "generate a plan"];
+  for (const message of messages) {
+    const response = await fetch(`${base}/api/lily`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message }) });
+    assert.equal(response.status, 202);
+    const body = await response.json();
+    assert.equal(body.status, "running");
+  }
+  assert.deepEqual(starts.map(item => item.intent), messages);
+  assert.equal(calls.length, 0);
+});
+
+test("reference steward greeting validates the declared steward before using its shortcut", async () => {
+  const engine = { inspect: async () => ({ stewardship: { realisation: { participants: [{ family: "agents", resource: "lily" }] } } }) };
+  const client = new GovernedStewardClient();
+  const unauthorized = await client.handle({ message: "hi", engine, declaration, authorization: { actorId: "eve" }, executionClass: "conversation" });
+  assert.equal(unauthorized.status, "unauthorized");
+  const result = await client.handle({ message: "hi", engine, declaration, authorization: { actorId: "lily" }, executionClass: "conversation" });
+  assert.equal(result.message, "Hello. How can I help?");
+  assert.equal(result.operationId, null);
 });
 
 test("steward authority comes from the declared actor resource", () => {

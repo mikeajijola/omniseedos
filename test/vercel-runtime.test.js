@@ -6,6 +6,7 @@ import { createDeclaredStewardClient, EveStewardClient, signSessionToken } from 
 import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
 import { projectEveEvent } from "../src/company-work-controller.js";
 import { inspectCompany } from "../src/app.js";
+import { LilyExecutionClass } from "../src/lily-interaction-router.js";
 
 const company = `apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -78,6 +79,69 @@ test("semantic steward executes requested tools through OmniSeed operation bound
   const client = new SemanticStewardClient({ runtime });
   const result = await client.handle({ message: "Which company?", engine, declaration: { metadata: { id: "omniseed_ecosystem" } }, authorization: { actorId: "lily", permissions: ["company.read"] } });
   assert.equal(result.message, "I resolved the company through OmniSeed.");
+});
+
+test("semantic steward handles conversation with one tool-free runtime response", async () => {
+  const calls = [];
+  const runtime = { respond: async input => {
+    calls.push(input);
+    return {};
+  } };
+  const engine = { invokeOperation: async () => assert.fail("conversation must not invoke an operation") };
+  const client = new SemanticStewardClient({ runtime });
+
+  const result = await client.handle({
+    message: "Hello",
+    engine,
+    declaration: { metadata: { id: "omniseed_ecosystem" } },
+    authorization: { actorId: "lily" },
+    executionClass: LilyExecutionClass.CONVERSATION
+  });
+
+  assert.deepEqual(result, { status: "completed", operationId: null, message: "Hello. How can I help?" });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], {
+    message: "Hello",
+    bootstrap: { companyId: "omniseed_ecosystem", actorId: "lily" },
+    transcript: [],
+    profile: { executionClass: LilyExecutionClass.CONVERSATION, reasoning: "minimal", toolLimit: 0 }
+  });
+});
+
+test("semantic steward keeps separate query and work tool budgets and profiles", async () => {
+  const calls = [];
+  const runtime = { respond: async input => {
+    calls.push(input);
+    return { toolCall: { operationId: "inspect_company", input: { round: calls.length } } };
+  } };
+  const operations = [];
+  const engine = { invokeOperation: async (_declaration, operationId, input) => {
+    operations.push({ operationId, input });
+    return { inspected: true };
+  } };
+  const client = new SemanticStewardClient({ runtime });
+  const common = {
+    message: "Inspect the company",
+    engine,
+    declaration: { metadata: { id: "omniseed_ecosystem" } },
+    authorization: { actorId: "lily" }
+  };
+
+  const query = await client.handle({ ...common, executionClass: LilyExecutionClass.COMPANY_QUERY });
+  assert.match(query.message, /query tool-call limit/);
+  assert.equal(calls.length, 2);
+  assert.equal(operations.length, 2);
+  assert.ok(calls.every(call => call.profile.executionClass === LilyExecutionClass.COMPANY_QUERY));
+  assert.ok(calls.every(call => call.profile.reasoning === "concise" && call.profile.toolLimit === 2));
+
+  calls.length = 0;
+  operations.length = 0;
+  const work = await client.handle({ ...common, executionClass: LilyExecutionClass.COMPANY_WORK });
+  assert.match(work.message, /work tool-call limit/);
+  assert.equal(calls.length, 6);
+  assert.equal(operations.length, 6);
+  assert.ok(calls.every(call => call.profile.executionClass === LilyExecutionClass.COMPANY_WORK));
+  assert.ok(calls.every(call => call.profile.reasoning === "full" && call.profile.toolLimit === 6));
 });
 
 test("Vercel runtime requires immutable desired revision and durable server settings", async () => {

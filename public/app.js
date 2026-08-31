@@ -69,11 +69,17 @@ $("#lily-form").addEventListener("submit", async event => {
     $("#lily-response").textContent = result.error ?? "Lily could not start this work.";
     return;
   }
-  currentWork = result;
   $("#intent").value = "";
-  $("#lily-response").textContent = "";
-  renderWork(result);
-  scheduleWorkPoll(100);
+  if (response.status === 202) {
+    currentWork = result;
+    $("#lily-response").textContent = "";
+    renderWork(result);
+    scheduleWorkPoll(100);
+  } else {
+    currentWork = null;
+    $("#lily-work").classList.add("hidden");
+    $("#lily-response").textContent = result.message ?? "Lily returned no answer.";
+  }
 });
 function invokeSteward(message) {
   const headers = { "content-type": "application/json", "idempotency-key": crypto.randomUUID() };
