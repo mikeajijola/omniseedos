@@ -1,0 +1,26 @@
+{
+  "apiVersion": "omniseed.dev/os-provider-diagnostics/v1alpha1",
+  "cases": [
+    {
+      "name": "healthy",
+      "engineProvider": { "providerId": "github", "family": "workflows", "state": "healthy", "implementation_available": true, "configured": true, "connected": true, "healthy": true },
+      "expected": { "lifecycleState": "healthy", "failureCategory": null, "remediationCategory": null }
+    },
+    {
+      "name": "implementation unavailable",
+      "engineProvider": { "providerId": "absent", "family": "connectors", "state": "unavailable", "implementation_available": false, "configured": false, "connected": false, "healthy": false },
+      "expected": { "lifecycleState": "implementation_unavailable", "failureCategory": "implementation_unavailable", "remediationCategory": "install_implementation" }
+    },
+    {
+      "name": "configuration missing",
+      "engineProvider": { "providerId": "google", "family": "inference", "state": "unconfigured", "implementation_available": true, "configured": false, "connected": false, "healthy": false },
+      "expected": { "lifecycleState": "configuration_missing", "failureCategory": "configuration_missing", "remediationCategory": "configure_credential" }
+    },
+    {
+      "name": "unsupported primitive family",
+      "engineProvider": { "providerId": "vercel", "family": "agents", "state": "unavailable", "implementation_available": false, "configured": false, "connected": false, "healthy": false },
+      "installedImplementation": { "id": "vercel", "name": "Vercel", "kind": "protocol", "version": "1", "revision": null, "families": ["connectors"] },
+      "expected": { "lifecycleState": "unsupported_primitive_family", "failureCategory": "unsupported_primitive_family", "remediationCategory": "fix_family_support" }
+    }
+  ]
+}

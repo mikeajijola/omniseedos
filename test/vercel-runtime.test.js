@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { DurableHttpStateStore } from "../src/durable-http-store.js";
 import { SemanticStewardClient } from "../src/semantic-steward.js";
 import { createDeclaredStewardClient, EveStewardClient, signSessionToken } from "../src/declared-steward.js";
-import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
+import { createVercelRuntime, parseProtocolProviders, restoreVercelApiPath } from "../src/vercel-runtime.js";
 import { projectEveEvent } from "../src/company-work-controller.js";
+import { inspectCompany } from "../src/app.js";
 
 const company = `apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -95,6 +96,13 @@ test("production runtime fails closed when declared GitHub Provider credentials 
   } }), /credential is unavailable/);
 });
 
+test("runtime Provider configuration is explicit and fails closed", () => {
+  assert.deepEqual(parseProtocolProviders(), []);
+  assert.deepEqual(parseProtocolProviders('[{"id":"google","command":"provider-google","args":["serve"]}]'), [{ id: "google", command: "provider-google", args: ["serve"] }]);
+  assert.throws(() => parseProtocolProviders("not-json"), /valid JSON/);
+  assert.throws(() => parseProtocolProviders('[{"id":"google"}]'), /id and command/);
+});
+
 test("Vercel runtime binds canonical metadata, declared Lily, and durable state", async () => {
   const env = runtimeEnv();
   env.OMNISEED_PUBLIC_STEWARD_CHAT = "true";
@@ -110,6 +118,9 @@ test("Vercel runtime binds canonical metadata, declared Lily, and durable state"
   assert.ok(runtime.engine.companyRepository instanceof Object);
   assert.equal(runtime.engine.providers.require("github").metadata.id, "github");
   assert.equal(runtime.allowAnonymousStewardChat, true);
+  const projection = await inspectCompany(runtime.engine, runtime.declaration);
+  assert.equal(projection.providerDiagnostics.find(item => item.providerId === "github" && item.primitiveFamily === "workflows").lifecycleState, "healthy");
+  assert.equal(projection.providerDiagnostics.find(item => item.providerId === "vercel" && item.primitiveFamily === "agents").lifecycleState, "implementation_unavailable");
 });
 
 test("declared steward adapter signs a scoped short-lived token and consumes Eve session output", async () => {
@@ -214,12 +225,14 @@ test("read-only inspection mode projects pinned Git desired state without fabric
     assert.equal(url, env.OMNISEED_COMPANY_DEFINITION_URL);
     return new Response(company);
   } });
-  const projection = await runtime.engine.inspect(runtime.declaration);
+  const projection = await inspectCompany(runtime.engine, runtime.declaration);
   assert.equal(runtime.inspectionMode, true);
   assert.equal(projection.instance.environment, "production-read-only-inspection");
   assert.equal(projection.instance.desiredRevision, "a".repeat(40));
   assert.equal(projection.observations.length, 0);
   assert.ok(projection.providerGaps.length > 0);
+  assert.ok(projection.providerDiagnostics.every(item => item.checkedAt === null));
+  assert.ok(projection.providerDiagnostics.every(item => item.lifecycleState === "implementation_unavailable"));
 });
 
 function runtimeEnv() {

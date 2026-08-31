@@ -69,7 +69,11 @@ secret references into the shared deployment. Different companies can reproduce
 the topology from the same declarations while supplying their own secret value
 as normal environment configuration.
 
-The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
+The reference server delegates runtime assembly to Engine's `assembleRuntime` capability. `OMNISEED_PROTOCOL_PROVIDERS` may contain a server-side JSON array of explicitly configured `{ id, command, args, configuration }` protocol implementations. Engine validates and registers those implementations; the OS does not discover packages, select alternatives, or add a fallback. With no configured implementations, desired Providers remain visibly unavailable.
+
+`GET /api/company` adds `providerDiagnostics`, a safe human-facing index over Engine's `providers` lifecycle projection. It links a selected Provider gap to affected Capabilities and Realisations and exposes only implementation manifest identity and coarse observation references. Configuration objects, credentials, transport errors, and raw evidence never enter this projection. A missing check timestamp remains `null`; the OS does not infer runtime health from desired state.
+
+Generic installed-package discovery, structured transition failures, and health-check evidence remain blocked on [OmniSeed #43](https://github.com/mikeajijola/omniseed/issues/43). Until that Engine contract is available, OS reports `not_connected` rather than claiming a connection attempt failed, and configured protocol implementations must be listed explicitly by the deployment.
 
 ## Vercel serverless adapter
 
