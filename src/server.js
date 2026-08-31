@@ -1,8 +1,7 @@
 import { resolve } from "node:path";
 import { loadOmniform } from "@omniseed/omniform";
-import { assembleRuntime, JsonStateStore } from "@omniseed/engine";
+import { JsonStateStore, OmniSeed, ProviderRegistry } from "@omniseed/engine";
 import { createBearerIdentityResolver, createOmniSeedOs, resolveDeclaredActorAuthorization } from "./app.js";
-import { parseProtocolProviders } from "./runtime-provider-config.js";
 
 const declarationPath = resolve(process.env.OMNIFORM_PATH ?? "../omniform/examples/omniseed/omniform.yaml");
 const statePath = resolve(process.env.OMNISEED_STATE ?? ".omniseed/state.json");
@@ -13,9 +12,9 @@ const binding = {
   deployment: process.env.OMNISEED_DEPLOYMENT_ID ? { id: process.env.OMNISEED_DEPLOYMENT_ID, provider: process.env.OMNISEED_DEPLOYMENT_PROVIDER ?? null } : null
 };
 const declaration = await loadOmniform(declarationPath);
-// Engine owns Provider protocol loading and compatibility checks. An empty
-// configuration remains truthful: desired Providers appear as unavailable.
-const { engine } = await assembleRuntime({ declaration, store: new JsonStateStore(statePath), protocolProviders: parseProtocolProviders(process.env.OMNISEED_PROTOCOL_PROVIDERS), binding });
+// Provider implementations are installed and registered by the company deployment.
+// An empty registry is truthful: desired providers appear as unavailable gaps.
+const engine = new OmniSeed({ store: new JsonStateStore(statePath), providers: new ProviderRegistry(), binding });
 const authenticate = createBearerIdentityResolver({
   operatorToken: process.env.OMNISEED_OPERATOR_TOKEN,
   operator: {
