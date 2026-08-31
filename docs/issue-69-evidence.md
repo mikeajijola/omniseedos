@@ -6,7 +6,7 @@ acceptance.
 
 | Acceptance item | Evidence in this repository | Status |
 | --- | --- | --- |
-| Provider lifecycle is visible without exposing configuration or credentials | `test/app.test.js` and `test/fixtures/provider-diagnostics.json` cover healthy, missing implementation, missing configuration, and not-connected projections. | Automated |
+| Provider lifecycle is visible without exposing configuration or credentials | `test/app.test.js` and `test/fixtures/provider-diagnostics.json` cover healthy, missing implementation, missing configuration, not-connected, unhealthy, and unsupported-family projections. | Automated |
 | GitHub Provider in the production runtime | `test/vercel-runtime.test.js` registers the declared GitHub implementation, checks its healthy diagnostic, and verifies that production fails closed when its credential is unavailable. | Automated with a test implementation; live credentials are not repository evidence |
 | Two additional Provider integrations | Google and Vercel lifecycle shapes exercise the generic diagnostic projection, but this OS does not install or connect implementations for them. | Blocked; not accepted as live integrations |
 | Production coverage | The Vercel runtime test verifies durable construction, the registered GitHub implementation, and an unavailable selected Vercel binding. | Automated |
