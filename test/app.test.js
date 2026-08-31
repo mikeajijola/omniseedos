@@ -162,7 +162,11 @@ test("browser never claims an actor or permission set", async () => {
   assert.doesNotMatch(browser, /JSON\.stringify\([^)]*authorization|permissions\s*:/);
   assert.match(browser, /authorization.*Bearer/);
   assert.doesNotMatch(browser, /dataset\.executionClass/);
-  assert.match(browser, /renderWork\(result\);\s+await load\(\);/);
+  const submitHandler = browser.match(/\$\("#lily-form"\)\.addEventListener\("submit", async event => \{([\s\S]*?)\n\}\);\nfunction invokeSteward/)?.[1];
+  assert.ok(submitHandler, "Lily submit handler must remain present");
+  assert.match(submitHandler, /if \(response\.status === 202\) \{[\s\S]*?currentWork = result;[\s\S]*?renderWork\(result\);[\s\S]*?scheduleWorkPoll\(100\);/);
+  assert.match(submitHandler, /else \{[\s\S]*?currentWork = null;[\s\S]*?result\.message/);
+  assert.doesNotMatch(submitHandler, /await load\(\)/);
 });
 
 test("Lily and API expose provider-neutral Company Search without vendor calls", async t => {
