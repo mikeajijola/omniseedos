@@ -71,6 +71,12 @@ as normal environment configuration.
 
 The reference server constructs an empty Provider registry. Desired Providers therefore remain visible as unavailable until the deployment explicitly installs and registers implementations. The OS never adds a fallback.
 
+`GET /api/company` adds `providerDiagnostics`, a safe human-facing index over Engine's `providers` lifecycle projection. It links a selected Provider gap to affected Capabilities and Realisations and exposes only implementation manifest identity and coarse observation references. Configuration objects, credentials, transport errors, and raw evidence never enter this projection. A missing check timestamp remains `null`; the OS does not infer runtime health from desired state.
+
+Generic installed-package discovery, structured transition failures, and health-check evidence remain blocked on [OmniSeed #43](https://github.com/mikeajijola/omniseed/issues/43). Until that Engine contract is available, OS reports `not_connected` rather than claiming a connection attempt failed, and deployments must explicitly register Provider implementations.
+
+The current acceptance evidence and its live-deployment limits are recorded in [`issue-69-evidence.md`](issue-69-evidence.md).
+
 ## Vercel serverless adapter
 
 `api/index.js` is a thin Vercel entry point over the same HTTP handler used by the Node server. It fetches a company definition from `OMNISEED_COMPANY_DEFINITION_URL`, which must contain the immutable `OMNISEED_DESIRED_REVISION`, and rejects declarations without a PR-governed canonical repository. Company identity comes from that declaration, never the hostname.

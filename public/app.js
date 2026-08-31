@@ -33,6 +33,13 @@ function renderAttention() {
 
 function card(name, detail, status="") { return `<article class="card"><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div><span class="status ${status}">${escapeHtml(status.replace("_", " "))}</span></article>`; }
 
+function providerCard(item) {
+  const implementation = item.implementation ? `${item.implementation.name}${item.implementation.version ? ` ${item.implementation.version}` : ""} · ${item.implementation.kind}` : "Not installed";
+  const affected = [...item.affectedCapabilities.map(value => value.name), ...item.affectedRealisations.map(value => value.name)];
+  const rows = [["Provider ID", item.providerId], ["Primitive family", item.primitiveFamily], ["Selected Provider", item.desiredProvider], ["Implementation", implementation], ["Lifecycle", item.lifecycleState.replaceAll("_", " ")], ["Last check", item.checkedAt ?? "No Provider check recorded"], ["Failure", item.failureCategory?.replaceAll("_", " ") ?? "None reported"], ["Affected company work", affected.join(", ") || "None"], ["Next step", item.remediationCategory?.replaceAll("_", " ") ?? "No action needed"]];
+  return `<article class="provider-card"><div class="provider-heading"><div><strong>${escapeHtml(item.providerId)}</strong><small>${escapeHtml(item.primitiveFamily)} · ${escapeHtml(item.reason)}</small></div><span class="status ${escapeHtml(item.lifecycleState)}">${escapeHtml(item.lifecycleState.replaceAll("_", " "))}</span></div><details><summary>Diagnostic details</summary><dl>${rows.map(([label,value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></details></article>`;
+}
+
 function project(kind) {
   $("#home").classList.add("hidden"); $("#projection").classList.remove("hidden");
   $("#projection-kind").textContent = "COMPANY PROJECTION"; $("#projection-title").textContent = labels[kind] ?? "Capabilities";
@@ -40,7 +47,7 @@ function project(kind) {
   if (kind === "capabilities") content = registry.capabilities.map(item => card(item.name, `${item.requirements.filter(req => req.covered).length}/${item.requirements.length} requirements covered`, item.state));
   else if (kind === "realisations") content = registry.realisations.map(item => card(item.name, `${item.participants.length} primitive participants`, item.status));
   else if (kind === "plan") content = [renderPlans(registry.plans), ...registry.proposals.map(item => card(item.id, `Company change · ${item.status}`, item.status))];
-  else if (kind === "observe") content = [...registry.observations.map(item => card(item.id, `${item.family} · ${item.checkedAt ?? "time unknown"}`, item.status)), ...registry.providerGaps.map(item => card(item.primitiveFamily, item.message, item.state))];
+  else if (kind === "observe") content = [...registry.providerDiagnostics.map(providerCard), ...registry.observations.map(item => card(item.id, `${item.family} · ${item.checkedAt ?? "time unknown"}`, item.status))];
   else if (kind === "activity") content = registry.history.map(item => card(item.type, item.at ?? "No timestamp", item.actorId ?? "recorded"));
   $("#projection-content").innerHTML = content.join("") || card(`No ${kind}`, "No desired resources are declared", "missing");
 }
