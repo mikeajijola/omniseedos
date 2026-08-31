@@ -2,6 +2,7 @@
   "name": "@omniseed/os",
   "version": "1.0.0-alpha.39",
   "description": "Per-company operating environment for OmniSeed.",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/mikeajijola/omniseedos.git"

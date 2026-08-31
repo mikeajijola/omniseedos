@@ -118,4 +118,4 @@ Read [`docs/architecture.md`](docs/architecture.md) for settings, web routes, th
 
 OmniSeed OS is in Generation 1 and early development.
 
-Licensing has not been decided. The package does not declare a license yet.
+OmniSeed OS is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
