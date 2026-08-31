@@ -9,7 +9,9 @@ function renderPlan(plan) {
   const current = plan.current === true;
   const stale = plan.current === false || plan.status === "stale";
   const empty = plan.status === "empty" || plan.outcome === "no_op";
-  const state = stale ? "stale" : empty ? "no-op" : words(plan.status || "planned");
+  const status = plan.status || "planned";
+  const state = stale ? "stale" : empty ? "no-op" : words(status);
+  const stateClass = stale ? "stale" : empty ? "no-op" : String(status).replaceAll("_", "-");
   const heading = current ? "Current plan" : stale ? "Earlier plan" : "Plan";
   const explanation = stale
     ? "Company state has changed since this plan was made. Generate a new plan before approval or apply."
@@ -18,7 +20,7 @@ function renderPlan(plan) {
       : `${plan.actions?.length ?? 0} governed change${plan.actions?.length === 1 ? "" : "s"} ${current ? "in the current plan" : "recorded by OmniSeed"}.`;
   const actions = (plan.actions ?? []).map(renderAction).join("");
   return `<article class="plan-card ${stale ? "plan-stale" : ""}" aria-labelledby="${escapeHtml(plan.id)}-title">
-    <div class="plan-heading"><div><p class="plan-kicker">${escapeHtml(heading)}</p><h2 id="${escapeHtml(plan.id)}-title">${escapeHtml(plan.id)}</h2></div><span class="status ${escapeHtml(state)}">${escapeHtml(state)}</span></div>
+    <div class="plan-heading"><div><p class="plan-kicker">${escapeHtml(heading)}</p><h2 id="${escapeHtml(plan.id)}-title">${escapeHtml(plan.id)}</h2></div><span class="status ${escapeHtml(stateClass)}">${escapeHtml(state)}</span></div>
     <p>${escapeHtml(explanation)}</p>
     ${plan.createdAt ? `<p class="plan-meta">Created <time datetime="${escapeHtml(plan.createdAt)}">${escapeHtml(plan.createdAt)}</time></p>` : ""}
     ${actions ? `<ol class="plan-actions" aria-label="Planned changes">${actions}</ol>` : ""}

@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { renderPlans } from "../public/plan-view.js";
 
+test("plan view keeps the missing plan visible", () => {
+  const html = renderPlans();
+  assert.match(html, /<h2>No plan yet<\/h2>/);
+  assert.match(html, /Ask the company steward to generate a plan from the current company state/);
+});
+
 test("plan view explains Engine-projected create and update actions with observations", () => {
   const html = renderPlans([{ id: "plan_current", current: true, status: "pending", createdAt: "2026-08-31T10:00:00Z", actions: [
     { action: "create", family: "connectors", resourceId: "mail", provider: "google", desired: { name: "Company mail" }, observed: null },
@@ -14,6 +20,11 @@ test("plan view explains Engine-projected create and update actions with observa
   assert.match(html, /Update lily/);
   assert.match(html, /Observed: degraded at 2026-08-31T09:00:00Z/);
   assert.match(html, /aria-label="Planned changes"/);
+});
+
+test("plan view uses one CSS class token for a multi-word status", () => {
+  const html = renderPlans([{ id: "plan_review", status: "review_required", actions: [] }]);
+  assert.match(html, /class="status review-required">review required<\/span>/);
 });
 
 test("plan view distinguishes Engine-projected no-op and stale plans", () => {
