@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
+import { withProviderDiagnostics } from "./provider-diagnostics.js";
 import { timingSafeEqual } from "node:crypto";
 import { classifyLilyInteraction, LilyExecutionClass } from "./lily-interaction-router.js";
 
@@ -16,7 +17,7 @@ export function createOmniSeedOs({ engine, declaration, steward = new GovernedSt
 export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), companyWork = null, authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null, allowAnonymousStewardChat = false }) {
   return async (request, response) => {
     try {
-      if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await engine.inspect(declaration));
+      if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await inspectCompany(engine, declaration));
       const operationRoute = /^\/v1\/companies\/([^/]+)\/operations\/([^/:]+):invoke$/.exec(request.url);
       if (operationRoute && request.method === "POST") {
         if (decodeURIComponent(operationRoute[1]) !== declaration.metadata.id) return json(response, 404, { ok: false, code: "company_not_found", error: "Company is not served by this runtime." });
@@ -89,6 +90,23 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
   };
 }
 
+export async function inspectCompany(engine, declaration) {
+  const projection = await engine.inspect(declaration);
+  return addProviderDiagnostics(engine, projection);
+}
+
+function addProviderDiagnostics(engine, projection) {
+  const providerImplementations = engine.providers.list().map(provider => ({
+    id: provider.metadata.id,
+    name: provider.metadata.name ?? provider.metadata.id,
+    kind: provider.kind ?? "in_process",
+    version: provider.metadata.version ?? null,
+    revision: provider.metadata.revision ?? null,
+    families: [...provider.metadata.families]
+  }));
+  return withProviderDiagnostics({ ...projection, providerImplementations });
+}
+
 export function createBearerIdentityResolver({ operatorToken, operator }) {
   const configured = typeof operatorToken === "string" && operatorToken.length >= 32;
   return async request => {
@@ -147,14 +165,17 @@ export class GovernedStewardClient {
     }
     const operation = registry.operations.find(item => item.id === "inspect_company");
     if (!operation || operation.currentAvailability !== "available") return unavailable("inspect_company", operation);
-    const projection = await engine.invokeOperation(declaration, "inspect_company", {}, authorization);
+    const projection = addProviderDiagnostics(engine, await engine.invokeOperation(declaration, "inspect_company", {}, authorization));
     if (/what company|which company|stewarding/.test(text)) return { status: "completed", operationId: "inspect_company", message: `I am stewarding ${projection.company.name} (${projection.company.id}), whose approved desired state is ${projection.instance.desiredState?.repository ?? "not Git-bound"} at revision ${projection.instance.desiredRevision ?? "unknown"}.`, projection: { instance: projection.instance } };
     if (/partial|missing|gap|attention/.test(text)) {
       const capabilities = projection.capabilities.filter(item => item.state !== "realised");
       return { status: "completed", operationId: "inspect_company", message: capabilities.length ? `${capabilities.length} capabilities are not realised: ${capabilities.map(item => `${item.name} (${item.state})`).join(", ")}.` : "Every declared capability is realised.", projection: { capabilities } };
     }
     if (/changed|recent|activity|history/.test(text)) return { status: "completed", operationId: "inspect_company", message: projection.history.length ? `The most recent recorded event is ${projection.history.at(-1).type}.` : "OmniSeed has no evidenced runtime history for this company yet.", projection: { history: projection.history } };
-    if (/how|realis|provider|evidence/.test(text)) return { status: "completed", operationId: "inspect_company", message: `I found ${projection.realisations.length} declared realisations. The trace includes primitive participants, Provider bindings, observations, and evidence.`, projection: { realisations: projection.realisations } };
+    if (/how|realis|provider|evidence/.test(text)) {
+      const gaps = projection.providerDiagnostics.filter(item => item.lifecycleState !== "healthy");
+      return { status: "completed", operationId: "inspect_company", message: gaps.length ? `${gaps.length} selected Provider bindings need attention: ${gaps.map(item => `${item.providerId} for ${item.primitiveFamily} (${item.lifecycleState.replaceAll("_", " ")})`).join(", ")}.` : "Every selected Provider binding is reported healthy by OmniSeed.", projection: { realisations: projection.realisations, providerDiagnostics: projection.providerDiagnostics } };
+    }
     return { status: "completed", operationId: "inspect_company", message: `${projection.company.name} has ${projection.capabilities.length} declared capabilities and ${projection.realisations.length} named realisations.`, projection: { instance: projection.instance, capabilities: projection.capabilities } };
   }
 }

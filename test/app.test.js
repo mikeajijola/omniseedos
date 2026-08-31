@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseOmniform } from "@omniseed/omniform";
 import { LocalCompanySearchProvider, MemoryStateStore, OmniSeed, ProviderRegistry, ReferenceProvider } from "@omniseed/engine";
-import { createBearerIdentityResolver, createOmniSeedOs, GovernedStewardClient, LilyResolverReference, resolveDeclaredActorAuthorization } from "../src/app.js";
+import { createBearerIdentityResolver, createOmniSeedOs, GovernedStewardClient, inspectCompany, LilyResolverReference, resolveDeclaredActorAuthorization } from "../src/app.js";
+import { withProviderDiagnostics } from "../src/provider-diagnostics.js";
 
 const operatorToken = "test-operator-token-that-is-at-least-32-characters";
 const operatorIdentity = {
@@ -45,6 +46,60 @@ test("OS projects provider gaps and enforces authorization", async t => {
   assert.equal(company.providerGaps[0].desiredProvider, "missing_connectors");
   const rejected = await fetch(`${base}/api/plan`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
   assert.equal(rejected.status, 403);
+});
+
+test("Provider diagnostics preserve Engine lifecycle truth and affected company work", async () => {
+  const diagnosticDeclaration = parseOmniform(`apiVersion: omniform.org/v1alpha1
+kind: Company
+metadata: { id: diagnostics, name: Diagnostics }
+spec:
+  providers:
+    connectors: { provider: absent }
+    inference: { provider: google }
+    agents: { provider: vercel }
+    workflows: { provider: github }
+  capabilities:
+    - id: operate
+      name: Operate company
+      requires:
+        - { id: connect, primitiveFamily: connectors }
+        - { id: reason, primitiveFamily: inference }
+        - { id: act, primitiveFamily: agents }
+        - { id: change, primitiveFamily: workflows }
+  operations:
+    - { id: inspect_company, capability: operate, description: Inspect, input: {}, output: {}, mutation: false, permissions: [company.read], approval: none, interfaces: [api] }
+`);
+  const providers = new ProviderRegistry()
+    .register(new ReferenceProvider({ id: "google", families: ["inference"], configured: false }))
+    .register(new ReferenceProvider({ id: "vercel", families: ["connectors"] }))
+    .register(new ReferenceProvider({ id: "github", families: ["workflows"] }));
+  providers.require("github").metadata.revision = "safe-revision";
+  providers.require("github").metadata.configuration = { token: "must-not-project" };
+  const projection = await inspectCompany(new OmniSeed({ store: new MemoryStateStore(), providers }), diagnosticDeclaration);
+  const byFamily = Object.fromEntries(projection.providerDiagnostics.map(item => [item.primitiveFamily, item]));
+  assert.equal(byFamily.connectors.lifecycleState, "implementation_unavailable");
+  assert.deepEqual(byFamily.connectors.availableImplementations, ["vercel"]);
+  assert.equal(byFamily.inference.lifecycleState, "configuration_missing");
+  assert.equal(byFamily.agents.lifecycleState, "unsupported_primitive_family");
+  assert.equal(byFamily.workflows.lifecycleState, "healthy");
+  assert.equal(byFamily.workflows.checkedAt, null);
+  assert.deepEqual(byFamily.connectors.affectedCapabilities, [{ id: "operate", name: "Operate company" }]);
+  assert.doesNotMatch(JSON.stringify(projection.providerDiagnostics), /must-not-project/);
+});
+
+test("browser Observe view renders structured Provider diagnostic details", async () => {
+  const browser = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(browser, /registry\.providerDiagnostics\.map\(providerCard\)/);
+  for (const label of ["Provider ID", "Primitive family", "Selected Provider", "Implementation", "Lifecycle", "Last check", "Failure", "Affected company work", "Next step"]) assert.match(browser, new RegExp(label));
+});
+
+test("structured Provider diagnostic fixtures match the API projection contract", async () => {
+  const fixture = JSON.parse(await readFile(new URL("./fixtures/provider-diagnostics.json", import.meta.url), "utf8"));
+  assert.equal(fixture.apiVersion, "omniseed.dev/os-provider-diagnostics/v1alpha1");
+  for (const item of fixture.cases) {
+    const projected = withProviderDiagnostics({ providers: [item.engineProvider], providerImplementations: item.installedImplementation ? [item.installedImplementation] : [], capabilities: [], realisations: [], resources: [], observations: [] }).providerDiagnostics[0];
+    assert.deepEqual({ lifecycleState: projected.lifecycleState, failureCategory: projected.failureCategory, remediationCategory: projected.remediationCategory }, item.expected, item.name);
+  }
 });
 
 test("OS projects inference independently from the declared steward Agent", async t => {

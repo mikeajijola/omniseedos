@@ -1,0 +1,38 @@
+{
+  "apiVersion": "omniseed.dev/os-provider-diagnostics/v1alpha1",
+  "cases": [
+    {
+      "name": "healthy",
+      "engineProvider": { "providerId": "github", "family": "workflows", "state": "healthy", "implementation_available": true, "configured": true, "connected": true, "healthy": true },
+      "expected": { "lifecycleState": "healthy", "failureCategory": null, "remediationCategory": null }
+    },
+    {
+      "name": "implementation unavailable",
+      "engineProvider": { "providerId": "absent", "family": "connectors", "state": "unavailable", "implementation_available": false, "configured": false, "connected": false, "healthy": false },
+      "expected": { "lifecycleState": "implementation_unavailable", "failureCategory": "implementation_unavailable", "remediationCategory": "install_implementation" }
+    },
+    {
+      "name": "configuration missing",
+      "engineProvider": { "providerId": "google", "family": "inference", "state": "unconfigured", "implementation_available": true, "configured": false, "connected": false, "healthy": false },
+      "expected": { "lifecycleState": "configuration_missing", "failureCategory": "configuration_missing", "remediationCategory": "configure_credential" }
+    },
+    {
+      "name": "not connected",
+      "engineProvider": { "providerId": "slack", "family": "connectors", "state": "disconnected", "implementation_available": true, "configured": true, "connected": false, "healthy": false },
+      "installedImplementation": { "id": "slack", "name": "Slack", "kind": "protocol", "version": "1", "revision": null, "families": ["connectors"] },
+      "expected": { "lifecycleState": "not_connected", "failureCategory": "connection_unavailable", "remediationCategory": "configure_credential" }
+    },
+    {
+      "name": "unhealthy",
+      "engineProvider": { "providerId": "github", "family": "workflows", "state": "unhealthy", "implementation_available": true, "configured": true, "connected": true, "healthy": false },
+      "installedImplementation": { "id": "github", "name": "GitHub", "kind": "protocol", "version": "1", "revision": null, "families": ["workflows"] },
+      "expected": { "lifecycleState": "unhealthy", "failureCategory": "health_check_failed", "remediationCategory": "repair_provider" }
+    },
+    {
+      "name": "unsupported primitive family",
+      "engineProvider": { "providerId": "vercel", "family": "agents", "state": "unavailable", "implementation_available": false, "configured": false, "connected": false, "healthy": false },
+      "installedImplementation": { "id": "vercel", "name": "Vercel", "kind": "protocol", "version": "1", "revision": null, "families": ["connectors"] },
+      "expected": { "lifecycleState": "unsupported_primitive_family", "failureCategory": "unsupported_primitive_family", "remediationCategory": "fix_family_support" }
+    }
+  ]
+}
