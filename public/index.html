@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OmniSeed OS</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="instance.css"><link rel="stylesheet" href="work.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OmniSeed OS</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="instance.css"><link rel="stylesheet" href="work.css"><link rel="stylesheet" href="accessibility.css"></head>
 <body>
   <aside>
     <a class="brand" href="#home"><span class="seed">◉</span> OmniSeed</a>
-    <nav id="nav">
-      <a class="active" href="#home" id="steward-nav">Steward</a><a href="#capabilities">Capabilities</a><a href="#realisations">Realisations</a><a href="#plan">Plan</a><a href="#observe">Observe</a><a href="#activity">Activity</a>
+    <nav id="nav" aria-label="Company views">
+      <a class="active" aria-current="page" href="#home" id="steward-nav">Steward</a><a href="#capabilities">Capabilities</a><a href="#realisations">Realisations</a><a href="#plan">Plan</a><a href="#observe">Observe</a><a href="#activity">Activity</a>
     </nav>
   </aside>
   <main>
@@ -13,7 +13,7 @@
     <section id="home" class="view">
       <div class="lily-mark" id="steward-mark">S</div><p class="eyebrow" id="steward-title">DECLARED COMPANY STEWARD</p>
       <h1>What do you need to know<br>about this company?</h1>
-      <form id="lily-form"><input id="intent" autocomplete="off" placeholder="Ask the declared steward…"><button title="Send">↑</button></form>
+      <form id="lily-form"><label class="visually-hidden" for="intent">Ask the declared company steward</label><input id="intent" autocomplete="off" placeholder="Ask the declared steward…"><button type="submit" aria-label="Send to the company steward">↑</button></form>
       <div class="suggestions"><button>What needs attention?</button><button>Generate a plan</button><button>What is missing?</button></div>
       <p id="lily-response" aria-live="polite"></p>
       <section id="lily-work" class="work hidden" aria-live="polite"><div class="section-title"><h2>Company work</h2><span id="work-status"></span></div><div id="work-timeline" class="timeline"></div></section>
