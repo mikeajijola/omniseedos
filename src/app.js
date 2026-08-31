@@ -3,7 +3,7 @@ import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import { timingSafeEqual } from "node:crypto";
-import { classifyLilyInteraction, interactionTiming, LilyExecutionClass } from "./lily-interaction-router.js";
+import { classifyLilyInteraction, LilyExecutionClass } from "./lily-interaction-router.js";
 
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
@@ -43,17 +43,16 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
         return json(response, 200, await engine.apply(declaration, body.plan, body.approval, await requireIdentity(authenticate, request, "operator")));
       }
       if (request.url === "/api/lily" && request.method === "POST") {
-        const accepted = performance.now();
         const body = await readJson(request);
         if (!allowAnonymousStewardChat) await requireIdentity(authenticate, request, "operator");
         if (!stewardAuthorization) throw authError("The declared steward has no server-side runtime identity.");
         const route = classifyLilyInteraction(body.message);
-        if (route.executionClass === LilyExecutionClass.COMPANY_WORK && companyWork) {
+        if (companyWork) {
           const work = await companyWork.start({ intent: body.message, idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"] });
-          return json(response, 202, { ...work, route, timing: interactionTiming(accepted) });
+          return json(response, 202, { ...work, route });
         }
         const result = await steward.handle({ message: body.message, engine, declaration, authorization: stewardAuthorization, executionClass: route.executionClass });
-        return json(response, 200, { ...result, route, timing: interactionTiming(accepted) });
+        return json(response, 200, { ...result, route });
       }
       const lilyWorkRoute = /^\/api\/lily\/([^/]+)$/.exec(request.url);
       if (lilyWorkRoute && request.method === "GET") {
@@ -121,12 +120,12 @@ const authError = message => Object.assign(new Error(message), { code: "authoriz
 
 /** Reference steward client. Reads and proposals use the same declared OmniSeed operation surface as every actor. */
 export class GovernedStewardClient {
-  async handle({ message = "", engine, declaration, authorization, executionClass = "company_work" }) {
-    if (executionClass === "conversation") return { status: "completed", message: "Hello. How can I help?", operationId: null };
+  async handle({ message = "", engine, declaration, authorization, executionClass = LilyExecutionClass.COMPANY_WORK }) {
     const registry = await engine.inspect(declaration);
     const actor = registry.stewardship?.realisation?.participants.find(item => item.family === "agents");
     if (!actor) return { status: "unsupported", message: "This company has no declared Agent participating in its stewardship realisation.", operationId: null };
     if (authorization?.actorId !== actor.resource) return { status: "unauthorized", message: "The requesting identity is not the declared steward actor.", operationId: null };
+    if (executionClass === LilyExecutionClass.CONVERSATION) return { status: "completed", message: "Hello. How can I help?", operationId: null };
     const text = message.toLowerCase();
     if (/give yourself|grant yourself|without approval|bypass/.test(text)) return { status: "refused", message: "I cannot grant myself authority or bypass the company’s approval policy.", operationId: null };
     if (/\b(observe|drift|reconcile|check reality)\b/.test(text) && !/\b(operate|plan|set up|realise|realize|fix)\b/.test(text)) {

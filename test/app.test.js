@@ -106,6 +106,8 @@ test("browser never claims an actor or permission set", async () => {
   const browser = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
   assert.doesNotMatch(browser, /JSON\.stringify\([^)]*authorization|permissions\s*:/);
   assert.match(browser, /authorization.*Bearer/);
+  assert.doesNotMatch(browser, /dataset\.executionClass/);
+  assert.match(browser, /renderWork\(result\);\s+await load\(\);/);
 });
 
 test("Lily and API expose provider-neutral Company Search without vendor calls", async t => {
@@ -284,30 +286,32 @@ test("durable Lily routes return work immediately and project the same Engine-ow
   assert.equal((await fetch(`${base}/api/lily/work_1/cancel`, { method: "POST", headers: authorizedHeaders, body: "{}" })).status, 200);
 });
 
-test("conversation and bounded company queries bypass durable work", async t => {
+test("production durable Lily work handles conversation, company-query, and company-work turns", async t => {
   const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
   const starts = [];
   const companyWork = { start: async input => { starts.push(input); return { id: "work_1", status: "running" }; } };
   const calls = [];
-  const steward = { handle: async input => { calls.push(input); return { status: "completed", message: "bounded answer" }; } };
+  const steward = { handle: async input => { calls.push(input); return { status: "completed", message: "non-durable answer" }; } };
   const server = createOmniSeedOs({ engine, declaration, authenticate, stewardAuthorization: { actorId: "lily", permissions: ["company.read"] }, companyWork, steward });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const message of ["hi", "What needs attention?"]) {
+  const messages = ["hi", "What needs attention?", "generate a plan"];
+  for (const message of messages) {
     const response = await fetch(`${base}/api/lily`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message }) });
-    assert.equal(response.status, 200);
+    assert.equal(response.status, 202);
     const body = await response.json();
-    assert.equal(body.message, "bounded answer");
-    assert.ok(["conversation", "company_query"].includes(body.route.executionClass));
-    assert.equal(typeof body.timing.totalMs, "number");
+    assert.equal(body.status, "running");
   }
-  assert.equal(starts.length, 0);
-  assert.deepEqual(calls.map(item => item.executionClass), ["conversation", "company_query"]);
+  assert.deepEqual(starts.map(item => item.intent), messages);
+  assert.equal(calls.length, 0);
 });
 
-test("reference steward greeting performs no company inspection", async () => {
-  const engine = { inspect: async () => assert.fail("conversation must not inspect company state") };
-  const result = await new GovernedStewardClient().handle({ message: "hi", engine, declaration, authorization: { actorId: "lily" }, executionClass: "conversation" });
+test("reference steward greeting validates the declared steward before using its shortcut", async () => {
+  const engine = { inspect: async () => ({ stewardship: { realisation: { participants: [{ family: "agents", resource: "lily" }] } } }) };
+  const client = new GovernedStewardClient();
+  const unauthorized = await client.handle({ message: "hi", engine, declaration, authorization: { actorId: "eve" }, executionClass: "conversation" });
+  assert.equal(unauthorized.status, "unauthorized");
+  const result = await client.handle({ message: "hi", engine, declaration, authorization: { actorId: "lily" }, executionClass: "conversation" });
   assert.equal(result.message, "Hello. How can I help?");
   assert.equal(result.operationId, null);
 });

@@ -16,7 +16,3 @@ export function classifyLilyInteraction(message = "") {
   if (COMPANY_QUERY.test(text) || text.endsWith("?")) return { executionClass: LilyExecutionClass.COMPANY_QUERY, reason: "bounded_read_intent" };
   return { executionClass: LilyExecutionClass.COMPANY_WORK, reason: "ambiguous_intent_requires_durable_boundary" };
 }
-
-export function interactionTiming(startedAt, now = performance.now()) {
-  return { acceptedAt: new Date().toISOString(), totalMs: Math.max(0, Math.round((now - startedAt) * 100) / 100) };
-}
