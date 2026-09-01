@@ -3,6 +3,7 @@ import { renderPlans } from "./plan-view.js";
 let registry;
 let operatorToken = "";
 let currentWork = null;
+let conversations = [];
 let workPoll = null;
 const $ = selector => document.querySelector(selector);
 const labels = { capabilities:"Capabilities",realisations:"Realisations",plan:"Plan",observe:"Observe",activity:"Activity" };
@@ -18,8 +19,10 @@ async function load() {
   const realised = registry.capabilities.filter(item => item.state === "realised").length;
   $("#summary").textContent = `${realised}/${registry.capabilities.length} capabilities realised`;
   renderAttention();
-  if (!currentWork && registry.workRuns?.length) {
-    currentWork = registry.workRuns.at(-1);
+  conversations = groupConversations(registry.workRuns ?? []);
+  renderConversationPicker();
+  if (!currentWork && conversations.length) {
+    currentWork = conversations.at(-1).runs.at(-1);
     renderWork(currentWork);
     if (isActive(currentWork.status)) scheduleWorkPoll();
   }
@@ -53,11 +56,11 @@ function project(kind) {
 }
 
 $("#nav").addEventListener("click", event => { const link=event.target.closest("a"); if(!link)return; document.querySelectorAll("nav a").forEach(a=>{ a.classList.remove("active"); a.removeAttribute("aria-current"); }); link.classList.add("active"); link.setAttribute("aria-current", "page"); const kind=link.hash.slice(1); if(kind==="home"){ $("#projection").classList.add("hidden"); $("#home").classList.remove("hidden"); } else project(kind); });
-$("#lily-form").addEventListener("submit", async event => {
+$("#steward-form").addEventListener("submit", async event => {
   event.preventDefault();
   const message = $("#intent").value.trim();
   if (!message) return;
-  $("#lily-response").textContent = "Lily is accepting the work…";
+  $("#steward-response").textContent = "The steward is accepting the message…";
   let response = await invokeSteward(message);
   if (response.status === 403 && !operatorToken) {
     operatorToken = window.prompt("This company requires an operator access token. It is kept only until you close or reload this page.") ?? "";
@@ -66,24 +69,27 @@ $("#lily-form").addEventListener("submit", async event => {
   const result = await response.json();
   if (response.status === 403) operatorToken = "";
   if (!response.ok) {
-    $("#lily-response").textContent = result.error ?? "Lily could not start this work.";
+    $("#steward-response").textContent = result.error ?? "The steward could not accept this message.";
     return;
   }
   $("#intent").value = "";
   if (response.status === 202) {
     currentWork = result;
-    $("#lily-response").textContent = "";
+    $("#steward-response").textContent = "";
     renderWork(result);
     scheduleWorkPoll(100);
   } else {
     currentWork = null;
-    $("#lily-work").classList.add("hidden");
-    $("#lily-response").textContent = result.message ?? "Lily returned no answer.";
+    $("#steward-work").classList.add("hidden");
+    $("#steward-response").textContent = result.message ?? "The steward returned no answer.";
   }
 });
 function invokeSteward(message) {
   const headers = { "content-type": "application/json", "idempotency-key": crypto.randomUUID() };
   if (operatorToken) headers.authorization = `Bearer ${operatorToken}`;
+  if (currentWork && isContinuable(currentWork)) {
+    return fetch(`/api/lily/${encodeURIComponent(currentWork.id)}/messages`, { method: "POST", headers, body: JSON.stringify({ message }) });
+  }
   return fetch("/api/lily", { method: "POST", headers, body: JSON.stringify({ message }) });
 }
 function scheduleWorkPoll(delay = 1200) {
@@ -101,34 +107,72 @@ async function pollWork() {
     await load();
     scheduleWorkPoll(["waiting_for_company_approval", "waiting_for_checks"].includes(result.status) ? 5000 : 1200);
   } catch (error) {
-    $("#lily-response").textContent = error.message;
+    $("#steward-response").textContent = error.message;
     scheduleWorkPoll(5000);
   }
 }
 function renderWork(work) {
-  $("#lily-work").classList.remove("hidden");
+  $("#steward-work").classList.remove("hidden");
   $("#work-status").textContent = work.status.replaceAll("_", " ");
   const events = work.events ?? [];
   $("#work-timeline").innerHTML = events.map(event => `<article class="${escapeHtml(event.type)}"><strong>${escapeHtml(eventLabel(event))}</strong>${event.summary ? `<p>${escapeHtml(event.summary)}</p>` : ""}<small>${escapeHtml(event.at ?? "")}${event.operationId ? ` · ${escapeHtml(event.operationId)}` : ""}</small></article>`).join("");
   const answer = [...events].reverse().find(event => event.type === "assistant_message" && event.summary);
-  if (answer) $("#lily-response").textContent = answer.summary;
+  if (answer) $("#steward-response").textContent = answer.summary;
+  $("#cancel-work").classList.toggle("hidden", !isActive(work.status));
 }
 function eventLabel(event) {
   return ({
     company_work_started: "Intent",
-    eve_session_started: "Lily started",
+    agent_session_started: "Steward started",
+    eve_session_started: "Steward started",
     agent_turn_started: "Reasoning over company state",
     operation_requested: "OmniSeed operation requested",
     operation_result: "OmniSeed operation result",
     assistant_message: "Lily",
     operator_input_requested: "Operator input required",
-    agent_session_waiting: "Durable session parked",
+    user_message: "You",
+    agent_session_waiting: "Waiting",
     company_work_settled: "Work state",
     company_work_status_changed: "Status",
     company_work_failed: "Work failed",
   })[event.type] ?? event.type.replaceAll("_", " ");
 }
 function isActive(status) { return !["completed", "failed", "blocked", "cancelled"].includes(status); }
-document.querySelectorAll(".suggestions button").forEach(button => button.addEventListener("click", () => { $("#intent").value=button.textContent; $("#lily-form").requestSubmit(); }));
+function isContinuable(work) { return (work?.session?.runtimeSessionId || work?.session?.id) && !["failed", "blocked", "cancelled"].includes(work.status); }
+function groupConversations(runs) {
+  const groups = new Map();
+  for (const run of runs) {
+    const id = run.conversationId ?? run.session?.id ?? run.id;
+    if (!groups.has(id)) groups.set(id, { id, runs: [] });
+    groups.get(id).runs.push(run);
+  }
+  return [...groups.values()];
+}
+function renderConversationPicker() {
+  const select = $("#conversation-select");
+  select.innerHTML = conversations.map((item, index) => `<option value="${escapeHtml(item.id)}">Conversation ${index + 1} · ${item.runs.length} work segment${item.runs.length === 1 ? "" : "s"}</option>`).join("");
+  if (currentWork) select.value = currentWork.conversationId ?? currentWork.session?.id ?? currentWork.id;
+}
+$("#conversation-select").addEventListener("change", event => {
+  const conversation = conversations.find(item => item.id === event.target.value);
+  currentWork = conversation?.runs.at(-1) ?? null;
+  if (currentWork) { renderWork(currentWork); if (isActive(currentWork.status)) scheduleWorkPoll(100); }
+});
+$("#new-conversation").addEventListener("click", () => {
+  currentWork = null;
+  clearTimeout(workPoll);
+  $("#steward-work").classList.add("hidden");
+  $("#steward-response").textContent = "A new conversation will begin with your next message.";
+  $("#intent").focus();
+});
+$("#cancel-work").addEventListener("click", async () => {
+  if (!currentWork) return;
+  const headers = operatorToken ? { authorization: `Bearer ${operatorToken}` } : {};
+  const response = await fetch(`/api/lily/${encodeURIComponent(currentWork.id)}/cancel`, { method: "POST", headers });
+  const result = await response.json();
+  if (!response.ok) return void ($("#steward-response").textContent = result.error ?? "Cancellation failed.");
+  currentWork = result; renderWork(result);
+});
+document.querySelectorAll(".suggestions button").forEach(button => button.addEventListener("click", () => { $("#intent").value=button.textContent; $("#steward-form").requestSubmit(); }));
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c])}
-load().catch(error => { $("#lily-response").textContent = error.message; });
+load().catch(error => { $("#steward-response").textContent = error.message; });

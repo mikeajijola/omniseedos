@@ -17,6 +17,8 @@ export function createOmniSeedOs({ engine, declaration, steward = new GovernedSt
 export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), companyWork = null, authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null, allowAnonymousStewardChat = false }) {
   return async (request, response) => {
     try {
+      if (request.url === "/api/health" && request.method === "GET") return json(response, 200, { ok: true, status: "healthy", companyId: declaration.metadata.id });
+      if (request.url === "/api/info" && request.method === "GET") return json(response, 200, { ok: true, companyId: declaration.metadata.id, product: "omniseed-os" });
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await inspectCompany(engine, declaration));
       const operationRoute = /^\/v1\/companies\/([^/]+)\/operations\/([^/:]+):invoke$/.exec(request.url);
       if (operationRoute && request.method === "POST") {

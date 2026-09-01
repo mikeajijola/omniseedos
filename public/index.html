@@ -13,10 +13,11 @@
     <section id="home" class="view">
       <div class="lily-mark" id="steward-mark">S</div><p class="eyebrow" id="steward-title">DECLARED COMPANY STEWARD</p>
       <h1>What do you need to know<br>about this company?</h1>
-      <form id="lily-form"><label class="visually-hidden" for="intent">Ask the declared company steward</label><input id="intent" autocomplete="off" placeholder="Ask the declared steward…"><button type="submit" aria-label="Send to the company steward">↑</button></form>
+      <div class="conversation-toolbar"><label for="conversation-select">Conversation</label><select id="conversation-select" aria-label="Choose a durable conversation"></select><button id="new-conversation" type="button">New conversation</button></div>
+      <form id="steward-form"><label class="visually-hidden" for="intent">Ask the declared company steward</label><input id="intent" autocomplete="off" placeholder="Ask the declared steward…"><button type="submit" aria-label="Send to the company steward">↑</button></form>
       <div class="suggestions"><button>What needs attention?</button><button>Generate a plan</button><button>What is missing?</button></div>
-      <p id="lily-response" aria-live="polite"></p>
-      <section id="lily-work" class="work hidden" aria-live="polite"><div class="section-title"><h2>Company work</h2><span id="work-status"></span></div><div id="work-timeline" class="timeline"></div></section>
+      <p id="steward-response" aria-live="polite"></p>
+      <section id="steward-work" class="work hidden" aria-live="polite"><div class="section-title"><h2>Conversation</h2><span id="work-status"></span></div><div id="work-timeline" class="conversation" role="log" aria-label="Conversation and governed company work"></div><button id="cancel-work" type="button" class="secondary hidden">Cancel current work</button></section>
       <div class="section-title"><h2>Needs attention</h2><span id="attention-count"></span></div><div id="attention" class="cards"></div>
     </section>
     <section id="projection" class="view hidden"><p class="eyebrow" id="projection-kind"></p><h1 id="projection-title"></h1><div id="projection-content" class="cards"></div></section>

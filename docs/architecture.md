@@ -24,13 +24,13 @@ when the Agent and interface share one observed deployment ID.
 
 The browser may request a plan, but apply requires explicit approval and is delegated to OmniSeed. The declared steward, voice, richer semantic resolution, API clients, CLI clients and machines must enter through this same boundary. The UI discovers the stewardship realisation instead of hard-coding Lily.
 
-## Lily company work
+## Declared-steward company work
 
-The production Lily surface is a durable company-work timeline, not a request/response chatbot. OS starts or resumes the declared steward's Eve session, reads the durable event stream from a saved cursor, and asks OmniSeed to persist only safe operational projections. Raw reasoning and continuation credentials never reach the browser.
+The production steward surface is a durable conversation over separately auditable company-work segments. OS selects an installed server-side interaction adapter from the Agent resource's explicit `runtime.interaction.protocol`, starts or resumes its opaque runtime session, reads from a durable cursor, and asks OmniSeed to persist only safe operational projections. Raw reasoning and continuation credentials never reach the browser.
 
 The selected Agent-loop implementation owns semantic execution state. OmniSeed owns company intent, operation history, governance pauses, plans, proposals, Provider actions, observations, and evidence. Git remains desired-state authority. OS polling catches up a bounded runtime stream and may wake the same session after OmniSeed observes an independent exact approval; it does not approve, alter a plan, or call a Provider.
 
-The browser receives a stable work-run ID immediately, then reads the Engine-owned timeline. Refresh and deployment do not discard work because the work record, Eve session ID, continuation token, and absolute stream cursor are durable server state. Only the safe session ID/cursor projection is displayed.
+The browser receives a stable work-run ID immediately, then reads the Engine-owned timeline. Refresh and deployment do not discard work because the work record, protocol identity, opaque runtime session ID, continuation material, and absolute cursor are durable server state. Only safe session provenance is displayed.
 
 Reconciliation is projected like any other company Capability. Lily may invoke the declared `generate_plan` and `observe_company` operations when her company authority permits them; applying a non-empty plan still requires the exact persisted plan and a separate approval. The OS refreshes the Engine projection after a steward operation so plans, observations, evidence, and Activity remain one shared truth rather than chat-only state.
 
@@ -61,7 +61,7 @@ The OS forwards exact plan/approval objects. It does not reproduce engine policy
 
 `OMNIFORM_PATH` selects the company declaration. `OMNISEED_STATE` selects the engine state file and defaults to `.omniseed/state.json`. `OMNISEED_DESIRED_REVISION`, `OMNISEED_ENVIRONMENT`, `OMNISEED_DEPLOYMENT_ID`, and `OMNISEED_DEPLOYMENT_PROVIDER` bind the replaceable OS deployment to the canonical company revision without defining company identity. `OMNISEED_OPERATOR_TOKEN` and `OMNISEED_OPERATOR_ACTOR_ID` configure the temporary human authentication boundary. `OMNISEED_STEWARD_ACTOR_ID` binds the server-side steward identity; its permissions are fixed by the runtime and cannot be supplied by the browser. `PORT` defaults to `4310`.
 
-For an Eve-backed declared Agent, `spec.resources.agents[].runtime.session`
+For an Eve-backed declared Agent, `spec.resources.agents[].runtime.interaction.protocol` is `eve.session.v1`, while `runtime.session`
 declares the credential reference, issuer, audience, and optional subject used
 for the OS-to-Agent session. `runtime.expectedEndpoints.operation` declares the
 canonical Eve session endpoint. The Vercel Provider resolves the declared
@@ -94,9 +94,7 @@ up a company endpoint, but it is not durable production reconciliation and does
 not satisfy live Provider acceptance.
 
 The production Vercel adapter discovers the selected stewardship Agent from the
-approved company declaration. For a declared Eve implementation it constructs a
-server-side Eve session client from the Agent's declared immutable runtime
-endpoint and session credential reference. The browser cannot select the
+approved company declaration and chooses an installed adapter by interaction protocol. The Eve compatibility adapter constructs a server-side session client from the Agent's declared immutable runtime endpoint and session credential reference. The browser cannot select the
 runtime URL, Provider, company, actor, or secret. Lily's authored tools call the
 same authenticated OmniSeed operation endpoint as every other Agent; no
 Provider credential enters Lily or the browser.

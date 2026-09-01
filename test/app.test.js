@@ -48,6 +48,18 @@ test("OS projects provider gaps and enforces authorization", async t => {
   assert.equal(rejected.status, 403);
 });
 
+test("declared OS health and info endpoints are safe and company-bound", async t => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const server = createOmniSeedOs({ engine, declaration });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const health = await fetch(`${base}/api/health`).then(response => response.json());
+  const info = await fetch(`${base}/api/info`).then(response => response.json());
+  assert.deepEqual(health, { ok: true, status: "healthy", companyId: "acme" });
+  assert.deepEqual(info, { ok: true, companyId: "acme", product: "omniseed-os" });
+  assert.doesNotMatch(JSON.stringify({ health, info }), /token|credential|secret/i);
+});
+
 test("Provider diagnostics preserve Engine lifecycle truth and affected company work", async () => {
   const diagnosticDeclaration = parseOmniform(`apiVersion: omniform.org/v1alpha1
 kind: Company
@@ -162,7 +174,7 @@ test("browser never claims an actor or permission set", async () => {
   assert.doesNotMatch(browser, /JSON\.stringify\([^)]*authorization|permissions\s*:/);
   assert.match(browser, /authorization.*Bearer/);
   assert.doesNotMatch(browser, /dataset\.executionClass/);
-  const submitHandler = browser.match(/\$\("#lily-form"\)\.addEventListener\("submit", async event => \{([\s\S]*?)\n\}\);\nfunction invokeSteward/)?.[1];
+  const submitHandler = browser.match(/\$\("#steward-form"\)\.addEventListener\("submit", async event => \{([\s\S]*?)\n\}\);\nfunction invokeSteward/)?.[1];
   assert.ok(submitHandler, "Lily submit handler must remain present");
   assert.match(submitHandler, /if \(response\.status === 202\) \{[\s\S]*?currentWork = result;[\s\S]*?renderWork\(result\);[\s\S]*?scheduleWorkPoll\(100\);/);
   assert.match(submitHandler, /else \{[\s\S]*?currentWork = null;[\s\S]*?result\.message/);

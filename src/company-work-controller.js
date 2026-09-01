@@ -1,7 +1,7 @@
 const MUTATING_OPERATIONS = new Set(["propose_company_change", "apply_company_change", "merge_company_change", "apply_plan", "observe_company"]);
 
 /**
- * Durable bridge between Engine-owned company work and Eve-owned semantic
+ * Durable bridge between Engine-owned company work and runtime-owned semantic
  * execution. It stores only safe event projections in OmniSeed; the raw model
  * stream and hidden reasoning remain Eve implementation state.
  */
@@ -13,15 +13,23 @@ export class CompanyWorkController {
     this.authorization = authorization;
   }
 
-  async start({ intent, idempotencyKey = null }) {
-    const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey }, this.authorization);
-    if (run.session.id) return run;
-    try {
-      const session = await this.steward.start({ message: intent });
-      await this.engine.attachCompanyWorkSession(this.declaration, run.id, { id: session.sessionId, continuationToken: session.continuationToken, streamIndex: session.streamIndex }, this.authorization);
+  async start({ intent, idempotencyKey = null, conversationId = null }) {
+    const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey, conversationId }, this.authorization);
+    if (run.session?.runtimeSessionId || run.session?.id) {
+      const raw = await this.engine.getCompanyWork(this.declaration, run.id, this.authorization, { includeRuntime: true });
+      const continued = await this.steward.continue(runtimeContinueInput(raw.session, intent));
+      await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(continued, raw.session), this.authorization);
       return this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
         status: "running",
-        event: { id: `${run.id}:eve-session`, type: "eve_session_started", summary: "Lily accepted the company work intent.", reference: session.sessionId, streamIndex: 0 },
+        event: { id: `${run.id}:agent-session`, type: "agent_session_continued", summary: "The declared steward continued the durable conversation.", cursor: raw.session.cursor ?? raw.session.streamIndex ?? 0 },
+      }, this.authorization);
+    }
+    try {
+      const session = await this.steward.start({ message: intent });
+      await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(session), this.authorization);
+      return this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
+        status: "running",
+        event: { id: `${run.id}:agent-session`, type: "agent_session_started", summary: "The declared steward accepted the company work intent.", reference: session.sessionId, cursor: 0, streamIndex: 0 },
       }, this.authorization);
     } catch (error) {
       await this.#fail(run.id, error);
@@ -40,11 +48,15 @@ export class CompanyWorkController {
 
   async continue(workRunId, message) {
     const raw = await this.engine.getCompanyWork(this.declaration, workRunId, this.authorization, { includeRuntime: true });
-    if (!raw.session.id || !raw.session.continuationToken) throw workError("company_work_session_unavailable", "The work run has no resumable Eve session.");
+    if (["completed", "failed", "blocked", "cancelled"].includes(raw.status)) {
+      if (raw.status === "completed") return this.start({ intent: message, conversationId: raw.conversationId });
+      throw workError("company_work_invalid_state", `The ${raw.status} work segment cannot continue.`);
+    }
+    if (!(raw.session?.runtimeSessionId || raw.session?.id) || runtimeContinuation(raw.session) == null) throw workError("company_work_session_unavailable", "The work segment has no resumable Agent session.");
     await this.engine.invokeOperation(this.declaration, "continue_company_work", { workRunId, message }, this.authorization);
     try {
-      const continued = await this.steward.continue({ sessionId: raw.session.id, continuationToken: raw.session.continuationToken, message });
-      await this.engine.attachCompanyWorkSession(this.declaration, workRunId, { id: continued.sessionId, continuationToken: continued.continuationToken, streamIndex: raw.session.streamIndex }, this.authorization);
+      const continued = await this.steward.continue(runtimeContinueInput(raw.session, message));
+      await this.engine.attachCompanyWorkSession(this.declaration, workRunId, runtimeAssociation(continued, raw.session), this.authorization);
       return this.engine.invokeOperation(this.declaration, "get_company_work", { workRunId }, this.authorization);
     } catch (error) {
       await this.#fail(workRunId, error, "blocked");
@@ -54,27 +66,29 @@ export class CompanyWorkController {
 
   async cancel(workRunId) {
     const raw = await this.engine.getCompanyWork(this.declaration, workRunId, this.authorization, { includeRuntime: true });
-    if (raw.session.id) await this.steward.cancel({ sessionId: raw.session.id, turnId: raw.session.turnId });
+    if (raw.session?.runtimeSessionId || raw.session?.id) await this.steward.cancel({ sessionId: raw.session.runtimeSessionId ?? raw.session.id, turnId: raw.session.turnId });
     return this.engine.invokeOperation(this.declaration, "cancel_company_work", { workRunId }, this.authorization);
   }
 
   async advance(workRunId) {
     let raw = await this.engine.getCompanyWork(this.declaration, workRunId, this.authorization, { includeRuntime: true });
-    if (["completed", "failed", "blocked", "cancelled"].includes(raw.status) || !raw.session.id) return;
+    if (["completed", "failed", "blocked", "cancelled"].includes(raw.status) || !(raw.session?.runtimeSessionId || raw.session?.id)) return;
     raw = await this.#resumeApprovedWork(raw);
-    const batch = await this.steward.read({ sessionId: raw.session.id, streamIndex: raw.session.streamIndex });
+    const sessionId = raw.session.runtimeSessionId ?? raw.session.id;
+    const cursor = raw.session.cursor ?? raw.session.streamIndex ?? 0;
+    const batch = await this.steward.read({ sessionId, streamIndex: cursor, cursor });
     if (!batch.events.length) return;
     let sawInputRequest = false;
     let sawBoundary = false;
     for (let index = 0; index < batch.events.length; index += 1) {
-      const source = batch.events[index], projected = projectEveEvent(source, raw.session.id, raw.session.streamIndex + index);
+      const source = batch.events[index], projected = projectRuntimeEvent(source, sessionId, cursor + index);
       const associations = extractAssociations(source);
       const operationIds = extractOperationIds(source);
       sawInputRequest ||= source.type === "input.requested";
       sawBoundary ||= source.type === "session.waiting";
       const status = source.type === "session.failed" || source.type === "turn.failed" ? "failed" : undefined;
       await this.engine.recordCompanyWorkEvent(this.declaration, workRunId, {
-        event: { ...projected, streamIndex: raw.session.streamIndex + index + 1, continuationToken: source.type === "session.waiting" ? source.data?.continuationToken : undefined },
+        event: { ...projected, cursor: cursor + index + 1, streamIndex: cursor + index + 1, continuation: source.type === "session.waiting" ? source.data?.continuationToken : undefined, continuationToken: source.type === "session.waiting" ? source.data?.continuationToken : undefined },
         associations,
         mutation: operationIds.some(operationId => this.#isMutation(operationId)),
         ...(status ? { status } : {}),
@@ -132,7 +146,7 @@ export class CompanyWorkController {
     await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
       status,
       summary,
-      event: { id: `${run.id}:settled:${run.events.length}`, type: "company_work_settled", status, summary, streamIndex: run.session.streamIndex },
+      event: { id: `${run.id}:settled:${run.events.length}`, type: "company_work_settled", status, summary, cursor: run.session.cursor ?? run.session.streamIndex, streamIndex: run.session.cursor ?? run.session.streamIndex },
     }, this.authorization);
   }
 
@@ -142,13 +156,13 @@ export class CompanyWorkController {
       if (["completed", "failed", "cancelled"].includes(raw.status)) return;
       await this.engine.recordCompanyWorkEvent(this.declaration, workRunId, {
         status,
-        event: { id: `${workRunId}:failure:${raw.events.length}`, type: "company_work_failed", status, summary: safeError(error), streamIndex: raw.session.streamIndex },
+        event: { id: `${workRunId}:failure:${raw.events.length}`, type: "company_work_failed", status, summary: safeError(error), cursor: raw.session?.cursor ?? raw.session?.streamIndex ?? 0 },
       }, this.authorization);
     } catch { /* Preserve the original runtime error. */ }
   }
 }
 
-export function projectEveEvent(event, sessionId, index) {
+export function projectRuntimeEvent(event, sessionId, index) {
   const operationIds = extractOperationIds(event);
   const result = event.data?.result;
   const summary = event.type === "message.completed" ? event.data?.message
@@ -167,6 +181,23 @@ export function projectEveEvent(event, sessionId, index) {
     status: event.data?.status,
     turnId: event.meta?.turnId ?? event.data?.turnId,
   };
+}
+export const projectEveEvent = projectRuntimeEvent;
+
+function runtimeContinuation(session) { return session?.continuation ?? session?.continuationToken; }
+function runtimeAssociation(session, existing = {}) {
+  const association = {
+    protocolId: session.protocol ?? session.protocolId ?? existing.protocolId ?? "eve.session.v1",
+    runtimeSessionId: session.sessionId ?? session.runtimeSessionId ?? existing.runtimeSessionId ?? existing.id,
+    cursor: session.cursor ?? session.streamIndex ?? existing.cursor ?? existing.streamIndex ?? 0,
+    continuation: session.continuation ?? session.continuationToken ?? runtimeContinuation(existing),
+    turnId: session.turnId ?? existing.turnId
+  };
+  // Remove after all deployed Engines have migrated their durable Eve records.
+  return { ...association, id: association.runtimeSessionId, streamIndex: association.cursor, continuationToken: association.continuation };
+}
+function runtimeContinueInput(session, message) {
+  return { sessionId: session.runtimeSessionId ?? session.id, continuationToken: runtimeContinuation(session), continuation: runtimeContinuation(session), message };
 }
 
 function extractOperationIds(event) {
