@@ -13,17 +13,11 @@ export class CompanyWorkController {
     this.authorization = authorization;
   }
 
-  async start({ intent, idempotencyKey = null, conversationId = null }) {
-    const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey, conversationId }, this.authorization);
-    if (run.session?.runtimeSessionId || run.session?.id) {
-      const raw = await this.engine.getCompanyWork(this.declaration, run.id, this.authorization, { includeRuntime: true });
-      const continued = await this.steward.continue(runtimeContinueInput(raw.session, intent));
-      await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(continued, raw.session), this.authorization);
-      return this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
-        status: "running",
-        event: { id: `${run.id}:agent-session`, type: "agent_session_continued", summary: "The declared steward continued the durable conversation.", cursor: raw.session.cursor ?? raw.session.streamIndex ?? 0 },
-      }, this.authorization);
-    }
+  async start({ intent, idempotencyKey = null }) {
+    const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey }, this.authorization);
+    // A matching idempotency key returns the existing work run. Never send the
+    // intent to the Agent runtime again or try to reopen a terminal Engine run.
+    if (run.session?.runtimeSessionId || run.session?.id) return run;
     try {
       const session = await this.steward.start({ message: intent });
       await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(session), this.authorization);
@@ -49,7 +43,7 @@ export class CompanyWorkController {
   async continue(workRunId, message) {
     const raw = await this.engine.getCompanyWork(this.declaration, workRunId, this.authorization, { includeRuntime: true });
     if (["completed", "failed", "blocked", "cancelled"].includes(raw.status)) {
-      if (raw.status === "completed") return this.start({ intent: message, conversationId: raw.conversationId });
+      if (raw.status === "completed") return this.start({ intent: message });
       throw workError("company_work_invalid_state", `The ${raw.status} work segment cannot continue.`);
     }
     if (!(raw.session?.runtimeSessionId || raw.session?.id) || runtimeContinuation(raw.session) == null) throw workError("company_work_session_unavailable", "The work segment has no resumable Agent session.");

@@ -57,3 +57,23 @@ test("durable controller runs Eve's tool loop and projects it into Engine compan
   assert.equal((await workStore.load("acme")).version > 0, true);
   assert.equal((await engine.inspect(declaration)).workRuns[0].id, started.id);
 });
+
+test("durable controller does not resume an Agent session when an idempotent start is replayed", async () => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), workStore: new MemoryCompanyWorkStore(), providers: new ProviderRegistry(), binding: { desiredRevision: "a".repeat(40) } });
+  let starts = 0, continuations = 0;
+  const steward = {
+    async start() {
+      starts += 1;
+      return { sessionId: "ses_1", continuationToken: "eve:first", streamIndex: 0 };
+    },
+    async continue() { continuations += 1; }
+  };
+  const controller = new CompanyWorkController({ engine, declaration, steward, authorization });
+  const first = await controller.start({ intent: "Inspect the company", idempotencyKey: "request-1" });
+  const replay = await controller.start({ intent: "Inspect the company", idempotencyKey: "request-1" });
+
+  assert.equal(replay.id, first.id);
+  assert.equal(replay.status, "running");
+  assert.equal(starts, 1);
+  assert.equal(continuations, 0);
+});
