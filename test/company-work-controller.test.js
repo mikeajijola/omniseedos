@@ -50,6 +50,7 @@ test("durable controller runs Eve's tool loop and projects it into Engine compan
   const completed = await controller.inspect(started.id);
   assert.equal(completed.status, "completed");
   assert.equal(completed.session.streamIndex, 5);
+  assert.equal(completed.events.find(item => item.type === "user_message").summary, "What company are you stewarding?");
   assert.equal(completed.events.find(item => item.type === "operation_requested").operationId, "inspect_company");
   assert.equal(completed.events.find(item => item.type === "assistant_message").summary, "I inspected Acme through OmniSeed.");
   assert.equal("continuationToken" in completed.session, false);
@@ -76,6 +77,22 @@ test("durable controller does not resume an Agent session when an idempotent sta
   assert.equal(replay.status, "running");
   assert.equal(starts, 1);
   assert.equal(continuations, 0);
+  assert.equal(replay.events.filter(item => item.type === "user_message").length, 1);
+});
+
+test("continuing work records the operator message in the durable conversation", async () => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), workStore: new MemoryCompanyWorkStore(), providers: new ProviderRegistry(), binding: { desiredRevision: "a".repeat(40) } });
+  const steward = {
+    async start() { return { sessionId: "session-1", continuationToken: "continuation-1", streamIndex: 0 }; },
+    async continue() { return { sessionId: "session-1", continuationToken: "continuation-2", streamIndex: 0 }; },
+  };
+  const controller = new CompanyWorkController({ engine, declaration, steward, authorization });
+  const first = await controller.start({ intent: "First message" });
+  await engine.recordCompanyWorkEvent(declaration, first.id, { status: "waiting_for_input", event: { id: "waiting-1", type: "operator_input_requested", summary: "More detail is required." } }, authorization);
+
+  const continued = await controller.continue(first.id, "Follow-up message");
+
+  assert.deepEqual(continued.events.filter(item => item.type === "user_message").map(item => item.summary), ["First message", "Follow-up message"]);
 });
 
 test("continuing completed work starts a new segment in the same conversation", async () => {

@@ -22,7 +22,9 @@ test("Vercel build copies the approved public interface into the configured outp
     assert.match(styles, /#steward-response\{/);
     assert.doesNotMatch(styles, /#lily-response\b/);
     assert.match(html, /id="work-timeline" class="conversation"/);
-    assert.match(workStyles, /\.conversation article::before/);
+    assert.match(workStyles, /\.conversation \{ display: flex; flex-direction: column;/);
+    assert.match(workStyles, /\.conversation article \{[^}]*padding: 10px 12px;/);
+    assert.doesNotMatch(workStyles, /\.conversation article::before|border-left:/);
     assert.doesNotMatch(workStyles, /\.timeline\b/);
   } finally {
     await rm(output, { recursive: true, force: true });

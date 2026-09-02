@@ -23,6 +23,7 @@ export class CompanyWorkController {
       await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
         event: { id: `${run.id}:conversation`, type: "company_work_conversation_associated", summary: "This work segment belongs to a durable conversation.", reference: durableConversationId },
       }, this.authorization);
+      await this.#recordUserMessage(run.id, intent, `${run.id}:user:0`);
       const session = await this.steward.start({ message: intent });
       await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(session), this.authorization);
       return withConversationId(await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
@@ -53,6 +54,7 @@ export class CompanyWorkController {
     if (!(raw.session?.runtimeSessionId || raw.session?.id) || runtimeContinuation(raw.session) == null) throw workError("company_work_session_unavailable", "The work segment has no resumable Agent session.");
     await this.engine.invokeOperation(this.declaration, "continue_company_work", { workRunId, message }, this.authorization);
     try {
+      await this.#recordUserMessage(workRunId, message, `${workRunId}:user:${raw.events.length}`);
       const continued = await this.steward.continue(runtimeContinueInput(raw.session, message));
       await this.engine.attachCompanyWorkSession(this.declaration, workRunId, runtimeAssociation(continued, raw.session), this.authorization);
       return withConversationId(await this.engine.invokeOperation(this.declaration, "get_company_work", { workRunId }, this.authorization));
@@ -145,6 +147,12 @@ export class CompanyWorkController {
       status,
       summary,
       event: { id: `${run.id}:settled:${run.events.length}`, type: "company_work_settled", status, summary, cursor: run.session.cursor ?? run.session.streamIndex, streamIndex: run.session.cursor ?? run.session.streamIndex },
+    }, this.authorization);
+  }
+
+  async #recordUserMessage(workRunId, message, id) {
+    await this.engine.recordCompanyWorkEvent(this.declaration, workRunId, {
+      event: { id, type: "user_message", summary: message },
     }, this.authorization);
   }
 
