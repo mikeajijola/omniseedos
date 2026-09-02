@@ -67,7 +67,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
         if (!allowAnonymousStewardChat) await requireIdentity(authenticate, request, "operator");
         if (!companyWork) return json(response, 404, { code: "company_work_unavailable", error: "Durable company work is not configured." });
         const body = await readJson(request);
-        return json(response, 202, await companyWork.continue(decodeURIComponent(lilyMessageRoute[1]), body.message));
+        return json(response, 202, await companyWork.continue(decodeURIComponent(lilyMessageRoute[1]), body.message, { idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"] }));
       }
       const lilyCancelRoute = /^\/api\/lily\/([^/]+)\/cancel$/.exec(request.url);
       if (lilyCancelRoute && request.method === "POST") {

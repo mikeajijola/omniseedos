@@ -95,25 +95,40 @@ test("continuing work records the operator message in the durable conversation",
   assert.deepEqual(continued.events.filter(item => item.type === "user_message").map(item => item.summary), ["First message", "Follow-up message"]);
 });
 
-test("continuing completed work starts a new segment in the same conversation", async () => {
-  const engine = new OmniSeed({ store: new MemoryStateStore(), workStore: new MemoryCompanyWorkStore(), providers: new ProviderRegistry(), binding: { desiredRevision: "a".repeat(40) } });
-  let starts = 0;
+test("controller restart preserves one runtime session across idempotent auditable conversation segments", async () => {
+  const workStore = new MemoryCompanyWorkStore();
+  const engine = new OmniSeed({ store: new MemoryStateStore(), workStore, providers: new ProviderRegistry(), binding: { desiredRevision: "a".repeat(40) } });
+  let starts = 0, continuations = 0;
+  const continuedWith = [];
   const steward = {
     async start() {
       starts += 1;
-      return { sessionId: `session-${starts}`, continuationToken: `continuation-${starts}`, streamIndex: 0 };
+      return { protocol: "acme.conversation.v2", sessionId: "session-1", continuation: "continuation-1", cursor: 0 };
     },
+    async continue(input) {
+      continuations += 1;
+      continuedWith.push(input);
+      return { protocol: "acme.conversation.v2", sessionId: "session-1", continuation: `continuation-${continuations + 1}` };
+    }
   };
-  const controller = new CompanyWorkController({ engine, declaration, steward, authorization });
-  const first = await controller.start({ intent: "First segment", conversationId: "conversation-1" });
-  await engine.recordCompanyWorkEvent(declaration, first.id, { status: "completed", event: { id: "completed-1", type: "company_work_settled", summary: "Done." } }, authorization);
+  const firstController = new CompanyWorkController({ engine, declaration, steward, authorization });
+  const first = await firstController.start({ intent: "First segment", conversationId: "conversation-1", idempotencyKey: "segment-1" });
+  await engine.recordCompanyWorkEvent(declaration, first.id, { status: "completed", event: { id: "completed-1", type: "company_work_settled", summary: "Done.", streamIndex: 4, continuationToken: "continuation-after-first" } }, authorization);
 
-  const second = await controller.continue(first.id, "Second segment");
+  const restartedController = new CompanyWorkController({ engine, declaration, steward, authorization });
+  const second = await restartedController.continue(first.id, "Second segment", { idempotencyKey: "segment-2" });
+  const replay = await restartedController.continue(first.id, "Second segment", { idempotencyKey: "segment-2" });
 
   assert.notEqual(second.id, first.id);
+  assert.equal(replay.id, second.id);
   assert.equal(second.conversationId, "conversation-1");
-  assert.equal(second.session.id, "session-2");
-  assert.equal(starts, 2);
-  const listed = await controller.list();
+  assert.equal(second.session.id, "session-1");
+  assert.equal(second.session.streamIndex, 4);
+  assert.equal(starts, 1);
+  assert.equal(continuations, 1);
+  assert.deepEqual(continuedWith[0], { sessionId: "session-1", continuationToken: "continuation-after-first", continuation: "continuation-after-first", message: "Second segment" });
+  const listed = await restartedController.list();
   assert.deepEqual(listed.map(run => run.conversationId), ["conversation-1", "conversation-1"]);
+  assert.equal(listed[0].status, "completed");
+  assert.equal(listed[1].events.some(event => event.type === "agent_session_resumed"), true);
 });

@@ -30,7 +30,7 @@ The production steward surface is a durable conversation over separately auditab
 
 The selected Agent-loop implementation owns semantic execution state. OmniSeed owns company intent, operation history, governance pauses, plans, proposals, Provider actions, observations, and evidence. Git remains desired-state authority. OS polling catches up a bounded runtime stream and may wake the same session after OmniSeed observes an independent exact approval; it does not approve, alter a plan, or call a Provider.
 
-The browser receives a stable work-run ID immediately, then reads the Engine-owned timeline. Refresh and deployment do not discard work because the work record, protocol identity, opaque runtime session ID, continuation material, and absolute cursor are durable server state. Only safe session provenance is displayed.
+The browser receives a stable work-run ID immediately, then reads the Engine-owned timeline. A completed segment stays immutable and the next message creates a new auditable segment which resumes the conversation's prior Engine-stored opaque runtime session and absolute cursor. Refresh, process restart, and deployment therefore do not discard semantic context. Replayed segment requests reuse the Engine work run and do not invoke the runtime twice. Only safe session provenance is displayed.
 
 Reconciliation is projected like any other company Capability. Lily may invoke the declared `generate_plan` and `observe_company` operations when her company authority permits them; applying a non-empty plan still requires the exact persisted plan and a separate approval. The OS refreshes the Engine projection after a steward operation so plans, observations, evidence, and Activity remain one shared truth rather than chat-only state.
 
