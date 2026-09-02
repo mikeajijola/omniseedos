@@ -13,18 +13,22 @@ export class CompanyWorkController {
     this.authorization = authorization;
   }
 
-  async start({ intent, idempotencyKey = null }) {
-    const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey }, this.authorization);
+  async start({ intent, idempotencyKey = null, conversationId = null }) {
+    const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey, conversationId }, this.authorization);
     // A matching idempotency key returns the existing work run. Never send the
     // intent to the Agent runtime again or try to reopen a terminal Engine run.
-    if (run.session?.runtimeSessionId || run.session?.id) return run;
+    if (run.session?.runtimeSessionId || run.session?.id) return withConversationId(run);
     try {
+      const durableConversationId = typeof conversationId === "string" && conversationId.trim() ? conversationId.trim() : run.id;
+      await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
+        event: { id: `${run.id}:conversation`, type: "company_work_conversation_associated", summary: "This work segment belongs to a durable conversation.", reference: durableConversationId },
+      }, this.authorization);
       const session = await this.steward.start({ message: intent });
       await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(session), this.authorization);
-      return this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
+      return withConversationId(await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
         status: "running",
         event: { id: `${run.id}:agent-session`, type: "agent_session_started", summary: "The declared steward accepted the company work intent.", reference: session.sessionId, cursor: 0, streamIndex: 0 },
-      }, this.authorization);
+      }, this.authorization));
     } catch (error) {
       await this.#fail(run.id, error);
       throw error;
@@ -33,17 +37,17 @@ export class CompanyWorkController {
 
   async inspect(workRunId, { advance = true } = {}) {
     if (advance) await this.advance(workRunId);
-    return this.engine.invokeOperation(this.declaration, "get_company_work", { workRunId }, this.authorization);
+    return withConversationId(await this.engine.invokeOperation(this.declaration, "get_company_work", { workRunId }, this.authorization));
   }
 
   async list() {
-    return this.engine.invokeOperation(this.declaration, "list_company_work", {}, this.authorization);
+    return (await this.engine.invokeOperation(this.declaration, "list_company_work", {}, this.authorization)).map(run => withConversationId(run));
   }
 
   async continue(workRunId, message) {
     const raw = await this.engine.getCompanyWork(this.declaration, workRunId, this.authorization, { includeRuntime: true });
     if (["completed", "failed", "blocked", "cancelled"].includes(raw.status)) {
-      if (raw.status === "completed") return this.start({ intent: message });
+      if (raw.status === "completed") return this.start({ intent: message, conversationId: conversationIdFrom(raw) });
       throw workError("company_work_invalid_state", `The ${raw.status} work segment cannot continue.`);
     }
     if (!(raw.session?.runtimeSessionId || raw.session?.id) || runtimeContinuation(raw.session) == null) throw workError("company_work_session_unavailable", "The work segment has no resumable Agent session.");
@@ -51,7 +55,7 @@ export class CompanyWorkController {
     try {
       const continued = await this.steward.continue(runtimeContinueInput(raw.session, message));
       await this.engine.attachCompanyWorkSession(this.declaration, workRunId, runtimeAssociation(continued, raw.session), this.authorization);
-      return this.engine.invokeOperation(this.declaration, "get_company_work", { workRunId }, this.authorization);
+      return withConversationId(await this.engine.invokeOperation(this.declaration, "get_company_work", { workRunId }, this.authorization));
     } catch (error) {
       await this.#fail(workRunId, error, "blocked");
       throw error;
@@ -177,6 +181,14 @@ export function projectRuntimeEvent(event, sessionId, index) {
   };
 }
 export const projectEveEvent = projectRuntimeEvent;
+
+export function withConversationId(run) {
+  return { ...run, conversationId: conversationIdFrom(run) };
+}
+
+function conversationIdFrom(run) {
+  return run.conversationId ?? run.events?.find(event => event.type === "company_work_conversation_associated")?.reference ?? run.id;
+}
 
 function runtimeContinuation(session) { return session?.continuation ?? session?.continuationToken; }
 function runtimeAssociation(session, existing = {}) {

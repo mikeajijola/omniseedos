@@ -5,6 +5,7 @@ import { parseOmniform } from "@omniseed/omniform";
 import { LocalCompanySearchProvider, MemoryStateStore, OmniSeed, ProviderRegistry, ReferenceProvider } from "@omniseed/engine";
 import { createBearerIdentityResolver, createOmniSeedOs, GovernedStewardClient, inspectCompany, LilyResolverReference, resolveDeclaredActorAuthorization } from "../src/app.js";
 import { withProviderDiagnostics } from "../src/provider-diagnostics.js";
+import { groupConversations } from "../public/conversations.js";
 
 const operatorToken = "test-operator-token-that-is-at-least-32-characters";
 const operatorIdentity = {
@@ -48,16 +49,27 @@ test("OS projects provider gaps and enforces authorization", async t => {
   assert.equal(rejected.status, 403);
 });
 
-test("declared OS health and info endpoints are safe and company-bound", async t => {
+test("GET /api/company remains the sole anonymous API route", async t => {
   const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
   const server = createOmniSeedOs({ engine, declaration });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
-  const health = await fetch(`${base}/api/health`).then(response => response.json());
-  const info = await fetch(`${base}/api/info`).then(response => response.json());
-  assert.deepEqual(health, { ok: true, status: "healthy", companyId: "acme" });
-  assert.deepEqual(info, { ok: true, companyId: "acme", product: "omniseed-os" });
-  assert.doesNotMatch(JSON.stringify({ health, info }), /token|credential|secret/i);
+  assert.equal((await fetch(`${base}/api/company`)).status, 200);
+  assert.equal((await fetch(`${base}/api/health`)).status, 404);
+  assert.equal((await fetch(`${base}/api/info`)).status, 404);
+});
+
+test("browser groups separately auditable work segments into durable conversations", () => {
+  const runs = [
+    { id: "work-1", conversationId: "conversation-1", session: { id: "session-1" } },
+    { id: "work-2", conversationId: "conversation-1", session: { id: "session-2" } },
+    { id: "work-3", conversationId: "conversation-2", session: { id: "session-3" } },
+  ];
+  const groups = groupConversations(runs);
+  assert.deepEqual(groups.map(group => [group.id, group.runs.map(run => run.id)]), [
+    ["conversation-1", ["work-1", "work-2"]],
+    ["conversation-2", ["work-3"]],
+  ]);
 });
 
 test("Provider diagnostics preserve Engine lifecycle truth and affected company work", async () => {

@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { withProviderDiagnostics } from "./provider-diagnostics.js";
 import { timingSafeEqual } from "node:crypto";
 import { classifyLilyInteraction, LilyExecutionClass } from "./lily-interaction-router.js";
+import { withConversationId } from "./company-work-controller.js";
 
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
@@ -17,8 +18,6 @@ export function createOmniSeedOs({ engine, declaration, steward = new GovernedSt
 export function createOmniSeedOsHandler({ engine, declaration, steward = new GovernedStewardClient(), companyWork = null, authenticate = anonymousOnly, operationAuthenticate = anonymousOnly, stewardAuthorization = null, allowAnonymousStewardChat = false }) {
   return async (request, response) => {
     try {
-      if (request.url === "/api/health" && request.method === "GET") return json(response, 200, { ok: true, status: "healthy", companyId: declaration.metadata.id });
-      if (request.url === "/api/info" && request.method === "GET") return json(response, 200, { ok: true, companyId: declaration.metadata.id, product: "omniseed-os" });
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await inspectCompany(engine, declaration));
       const operationRoute = /^\/v1\/companies\/([^/]+)\/operations\/([^/:]+):invoke$/.exec(request.url);
       if (operationRoute && request.method === "POST") {
@@ -51,7 +50,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
         if (!stewardAuthorization) throw authError("The declared steward has no server-side runtime identity.");
         const route = classifyLilyInteraction(body.message);
         if (companyWork) {
-          const work = await companyWork.start({ intent: body.message, idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"] });
+          const work = await companyWork.start({ intent: body.message, idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"], conversationId: body.conversationId ?? null });
           return json(response, 202, { ...work, route });
         }
         const result = await steward.handle({ message: body.message, engine, declaration, authorization: stewardAuthorization, executionClass: route.executionClass });
@@ -94,7 +93,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
 
 export async function inspectCompany(engine, declaration) {
   const projection = await engine.inspect(declaration);
-  return addProviderDiagnostics(engine, projection);
+  return addProviderDiagnostics(engine, { ...projection, workRuns: (projection.workRuns ?? []).map(run => withConversationId(run)) });
 }
 
 function addProviderDiagnostics(engine, projection) {

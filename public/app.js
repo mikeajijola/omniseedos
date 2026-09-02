@@ -1,4 +1,5 @@
 import { renderPlans } from "./plan-view.js";
+import { conversationIdFor, groupConversations } from "./conversations.js";
 
 let registry;
 let operatorToken = "";
@@ -123,6 +124,7 @@ function renderWork(work) {
 function eventLabel(event) {
   return ({
     company_work_started: "Intent",
+    company_work_conversation_associated: "Conversation",
     agent_session_started: "Steward started",
     eve_session_started: "Steward started",
     agent_turn_started: "Reasoning over company state",
@@ -139,19 +141,10 @@ function eventLabel(event) {
 }
 function isActive(status) { return !["completed", "failed", "blocked", "cancelled"].includes(status); }
 function isContinuable(work) { return (work?.session?.runtimeSessionId || work?.session?.id) && !["failed", "blocked", "cancelled"].includes(work.status); }
-function groupConversations(runs) {
-  const groups = new Map();
-  for (const run of runs) {
-    const id = run.conversationId ?? run.session?.id ?? run.id;
-    if (!groups.has(id)) groups.set(id, { id, runs: [] });
-    groups.get(id).runs.push(run);
-  }
-  return [...groups.values()];
-}
 function renderConversationPicker() {
   const select = $("#conversation-select");
   select.innerHTML = conversations.map((item, index) => `<option value="${escapeHtml(item.id)}">Conversation ${index + 1} · ${item.runs.length} work segment${item.runs.length === 1 ? "" : "s"}</option>`).join("");
-  if (currentWork) select.value = currentWork.conversationId ?? currentWork.session?.id ?? currentWork.id;
+  if (currentWork) select.value = conversationIdFor(currentWork);
 }
 $("#conversation-select").addEventListener("change", event => {
   const conversation = conversations.find(item => item.id === event.target.value);

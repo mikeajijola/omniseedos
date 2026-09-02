@@ -77,3 +77,26 @@ test("durable controller does not resume an Agent session when an idempotent sta
   assert.equal(starts, 1);
   assert.equal(continuations, 0);
 });
+
+test("continuing completed work starts a new segment in the same conversation", async () => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), workStore: new MemoryCompanyWorkStore(), providers: new ProviderRegistry(), binding: { desiredRevision: "a".repeat(40) } });
+  let starts = 0;
+  const steward = {
+    async start() {
+      starts += 1;
+      return { sessionId: `session-${starts}`, continuationToken: `continuation-${starts}`, streamIndex: 0 };
+    },
+  };
+  const controller = new CompanyWorkController({ engine, declaration, steward, authorization });
+  const first = await controller.start({ intent: "First segment", conversationId: "conversation-1" });
+  await engine.recordCompanyWorkEvent(declaration, first.id, { status: "completed", event: { id: "completed-1", type: "company_work_settled", summary: "Done." } }, authorization);
+
+  const second = await controller.continue(first.id, "Second segment");
+
+  assert.notEqual(second.id, first.id);
+  assert.equal(second.conversationId, "conversation-1");
+  assert.equal(second.session.id, "session-2");
+  assert.equal(starts, 2);
+  const listed = await controller.list();
+  assert.deepEqual(listed.map(run => run.conversationId), ["conversation-1", "conversation-1"]);
+});
