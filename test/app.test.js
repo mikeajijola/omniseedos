@@ -5,7 +5,7 @@ import { parseOmniform } from "@omniseed/omniform";
 import { LocalCompanySearchProvider, MemoryStateStore, OmniSeed, ProviderRegistry, ReferenceProvider } from "@omniseed/engine";
 import { createBearerIdentityResolver, createOmniSeedOs, GovernedStewardClient, inspectCompany, LilyResolverReference, resolveDeclaredActorAuthorization } from "../src/app.js";
 import { withProviderDiagnostics } from "../src/provider-diagnostics.js";
-import { groupConversations } from "../public/conversations.js";
+import { conversationEvents, groupConversations } from "../public/conversations.js";
 
 const operatorToken = "test-operator-token-that-is-at-least-32-characters";
 const operatorIdentity = {
@@ -61,8 +61,8 @@ test("GET /api/company remains the sole anonymous API route", async t => {
 
 test("browser groups separately auditable work segments into durable conversations", () => {
   const runs = [
-    { id: "work-1", conversationId: "conversation-1", session: { id: "session-1" } },
-    { id: "work-2", conversationId: "conversation-1", session: { id: "session-2" } },
+    { id: "work-1", conversationId: "conversation-1", session: { id: "session-1" }, events: [{ id: "first", summary: "First segment" }] },
+    { id: "work-2", conversationId: "conversation-1", session: { id: "session-1" }, events: [{ id: "second", summary: "Second segment" }] },
     { id: "work-3", conversationId: "conversation-2", session: { id: "session-3" } },
   ];
   const groups = groupConversations(runs);
@@ -70,6 +70,8 @@ test("browser groups separately auditable work segments into durable conversatio
     ["conversation-1", ["work-1", "work-2"]],
     ["conversation-2", ["work-3"]],
   ]);
+  assert.deepEqual(conversationEvents(groups[0], { ...runs[1], events: [{ id: "second", summary: "Updated second segment" }] }).map(event => event.summary), ["First segment", "Updated second segment"]);
+  assert.deepEqual(conversationEvents(groups[0], { id: "work-4", conversationId: "conversation-1", events: [{ id: "third", summary: "New segment" }] }).map(event => event.summary), ["First segment", "Second segment", "New segment"]);
 });
 
 test("Provider diagnostics preserve Engine lifecycle truth and affected company work", async () => {
@@ -349,10 +351,11 @@ test("declared public steward chat needs no browser credential and grants no ope
 
 test("durable Lily routes return work immediately and project the same Engine-owned timeline", async t => {
   const engine = new OmniSeed({ store: new MemoryStateStore(), providers: new ProviderRegistry() });
+  const continuations = [];
   const companyWork = {
     start: async ({ intent, idempotencyKey }) => ({ id: "work_1", intent, idempotencyKey, status: "running", events: [] }),
     inspect: async id => ({ id, status: "completed", events: [{ id: "e1", type: "assistant_message", summary: "Observed company state." }] }),
-    continue: async (id, message) => ({ id, status: "running", intent: message }),
+    continue: async (id, message, options) => { continuations.push({ id, message, options }); return { id, status: "running", intent: message }; },
     cancel: async id => ({ id, status: "cancelled" }),
   };
   const server = createOmniSeedOs({ engine, declaration, authenticate, stewardAuthorization: { actorId: "lily", permissions: [] }, companyWork });
@@ -365,7 +368,8 @@ test("durable Lily routes return work immediately and project the same Engine-ow
   assert.equal(startedBody.route.executionClass, "company_work");
   const inspected = await fetch(`${base}/api/lily/work_1`, { headers: { authorization: `Bearer ${operatorToken}` } }).then(response => response.json());
   assert.equal(inspected.events[0].type, "assistant_message");
-  assert.equal((await fetch(`${base}/api/lily/work_1/messages`, { method: "POST", headers: authorizedHeaders, body: JSON.stringify({ message: "Continue" }) })).status, 202);
+  assert.equal((await fetch(`${base}/api/lily/work_1/messages`, { method: "POST", headers: { ...authorizedHeaders, "idempotency-key": "segment-2" }, body: JSON.stringify({ message: "Continue" }) })).status, 202);
+  assert.deepEqual(continuations, [{ id: "work_1", message: "Continue", options: { idempotencyKey: "segment-2" } }]);
   assert.equal((await fetch(`${base}/api/lily/work_1/cancel`, { method: "POST", headers: authorizedHeaders, body: "{}" })).status, 200);
 });
 

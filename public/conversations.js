@@ -11,3 +11,10 @@ export function groupConversations(runs) {
   }
   return [...groups.values()];
 }
+
+export function conversationEvents(conversation, currentRun = null) {
+  if (!conversation) return currentRun?.events ?? [];
+  const includesCurrent = currentRun && conversation.runs.some(run => run.id === currentRun.id);
+  const runs = includesCurrent ? conversation.runs : [...conversation.runs, ...(currentRun ? [currentRun] : [])];
+  return runs.flatMap(run => (run.id === currentRun?.id ? currentRun : run).events ?? []);
+}

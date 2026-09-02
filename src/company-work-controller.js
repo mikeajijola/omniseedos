@@ -20,15 +20,26 @@ export class CompanyWorkController {
     if (run.session?.runtimeSessionId || run.session?.id) return withConversationId(run);
     try {
       const durableConversationId = typeof conversationId === "string" && conversationId.trim() ? conversationId.trim() : run.id;
+      const previousSession = await this.#conversationSession(durableConversationId, run.id);
       await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
         event: { id: `${run.id}:conversation`, type: "company_work_conversation_associated", summary: "This work segment belongs to a durable conversation.", reference: durableConversationId },
       }, this.authorization);
       await this.#recordUserMessage(run.id, intent, `${run.id}:user:0`);
-      const session = await this.steward.start({ message: intent });
-      await this.engine.attachCompanyWorkSession(this.declaration, run.id, runtimeAssociation(session), this.authorization);
+      const session = previousSession
+        ? await this.steward.continue(runtimeContinueInput(previousSession, intent))
+        : await this.steward.start({ message: intent, idempotencyKey });
+      const association = runtimeAssociation(session, previousSession ?? {});
+      await this.engine.attachCompanyWorkSession(this.declaration, run.id, association, this.authorization);
       return withConversationId(await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
         status: "running",
-        event: { id: `${run.id}:agent-session`, type: "agent_session_started", summary: "The declared steward accepted the company work intent.", reference: session.sessionId, cursor: 0, streamIndex: 0 },
+        event: {
+          id: `${run.id}:agent-session`,
+          type: previousSession ? "agent_session_resumed" : "agent_session_started",
+          summary: previousSession ? "The declared steward resumed this durable conversation." : "The declared steward accepted the company work intent.",
+          reference: association.runtimeSessionId,
+          cursor: association.cursor,
+          streamIndex: association.streamIndex,
+        },
       }, this.authorization));
     } catch (error) {
       await this.#fail(run.id, error);
@@ -45,10 +56,10 @@ export class CompanyWorkController {
     return (await this.engine.invokeOperation(this.declaration, "list_company_work", {}, this.authorization)).map(run => withConversationId(run));
   }
 
-  async continue(workRunId, message) {
+  async continue(workRunId, message, { idempotencyKey = null } = {}) {
     const raw = await this.engine.getCompanyWork(this.declaration, workRunId, this.authorization, { includeRuntime: true });
     if (["completed", "failed", "blocked", "cancelled"].includes(raw.status)) {
-      if (raw.status === "completed") return this.start({ intent: message, conversationId: conversationIdFrom(raw) });
+      if (raw.status === "completed") return this.start({ intent: message, conversationId: conversationIdFrom(raw), idempotencyKey });
       throw workError("company_work_invalid_state", `The ${raw.status} work segment cannot continue.`);
     }
     if (!(raw.session?.runtimeSessionId || raw.session?.id) || runtimeContinuation(raw.session) == null) throw workError("company_work_session_unavailable", "The work segment has no resumable Agent session.");
@@ -154,6 +165,14 @@ export class CompanyWorkController {
     await this.engine.recordCompanyWorkEvent(this.declaration, workRunId, {
       event: { id, type: "user_message", summary: message },
     }, this.authorization);
+  }
+
+  async #conversationSession(conversationId, excludingRunId) {
+    const runs = await this.engine.invokeOperation(this.declaration, "list_company_work", {}, this.authorization);
+    const previous = [...runs].reverse().find(item => item.id !== excludingRunId && conversationIdFrom(item) === conversationId && (item.session?.runtimeSessionId || item.session?.id));
+    if (!previous) return null;
+    const raw = await this.engine.getCompanyWork(this.declaration, previous.id, this.authorization, { includeRuntime: true });
+    return runtimeContinuation(raw.session) == null ? null : raw.session;
   }
 
   async #fail(workRunId, error, status = "failed") {

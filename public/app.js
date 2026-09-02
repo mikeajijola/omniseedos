@@ -1,5 +1,5 @@
 import { renderPlans } from "./plan-view.js";
-import { conversationIdFor, groupConversations } from "./conversations.js";
+import { conversationEvents, conversationIdFor, groupConversations } from "./conversations.js";
 
 let registry;
 let operatorToken = "";
@@ -115,7 +115,8 @@ async function pollWork() {
 function renderWork(work) {
   $("#steward-work").classList.remove("hidden");
   $("#work-status").textContent = work.status.replaceAll("_", " ");
-  const events = work.events ?? [];
+  const conversation = conversations.find(item => item.id === conversationIdFor(work));
+  const events = conversationEvents(conversation, work);
   $("#work-timeline").innerHTML = events.map(event => `<article class="${escapeHtml(event.type)}"><strong>${escapeHtml(eventLabel(event))}</strong>${event.summary ? `<p>${escapeHtml(event.summary)}</p>` : ""}<small>${escapeHtml(event.at ?? "")}${event.operationId ? ` · ${escapeHtml(event.operationId)}` : ""}</small></article>`).join("");
   const answer = [...events].reverse().find(event => event.type === "assistant_message" && event.summary);
   if (answer) $("#steward-response").textContent = answer.summary;
@@ -126,6 +127,7 @@ function eventLabel(event) {
     company_work_started: "Intent",
     company_work_conversation_associated: "Conversation",
     agent_session_started: "Steward started",
+    agent_session_resumed: "Steward resumed",
     eve_session_started: "Steward started",
     agent_turn_started: "Reasoning over company state",
     operation_requested: "OmniSeed operation requested",
