@@ -30,6 +30,10 @@ async function dispatch(request: Request) {
 export default defineChannel({
   routes: [
     GET("/api/company", dispatch),
+    GET("/api/stewardship", dispatch),
+    POST("/api/stewardship/enable", dispatch),
+    POST("/api/stewardship/pause", dispatch),
+    POST("/api/stewardship/off", dispatch),
     POST("/api/plan", dispatch),
     POST("/api/approve", dispatch),
     POST("/api/apply", dispatch),

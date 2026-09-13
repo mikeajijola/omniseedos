@@ -21,7 +21,9 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await inspectCompany(engine, declaration));
       if (request.url === "/api/stewardship" && request.method === "GET") {
         const authorization = await requireIdentity(authenticate, request, "operator");
-        return json(response, 200, await engine.inspectStewardship(declaration, authorization));
+        const profile = await engine.inspectStewardship(declaration, authorization);
+        const registry = await engine.inspect(declaration);
+        return json(response, 200, projectStewardshipEvidence({ ...registry, stewardship: { autonomy: profile } }));
       }
       if (request.url === "/api/stewardship/enable" && request.method === "POST") {
         const body = await readJson(request), authorization = await requireIdentity(authenticate, request, "operator");
@@ -106,13 +108,15 @@ export async function inspectCompany(engine, declaration) {
   return addProviderDiagnostics(engine, { ...projection, workRuns: (projection.workRuns ?? []).map(run => withConversationId(run)) });
 }
 
+const pick = (value, keys) => Object.fromEntries(keys.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
+
 export function projectStewardshipEvidence(registry) {
   const autonomy = registry.stewardship?.autonomy ?? null;
   if (!autonomy) return null;
   return {
     mode: autonomy.declaredMode, state: autonomy.state, activeFrom: autonomy.activeFrom, expiresAt: autonomy.expiresAt,
-    limits: autonomy.limits, usage: autonomy.usage,
-    work: (registry.workRuns ?? []).map(({ id, status, summary, associations }) => ({ id, status, summary, associations })),
+    limits: pick(autonomy.limits, ["concurrency", "dailyChanges", "repairRounds", "actions"]), usage: pick(autonomy.usage, ["active", "dailyChanges", "actions", "repairRounds", "day"]),
+    work: (registry.workRuns ?? []).map(({ id, status, summary, associations }) => ({ id, status, summary, associations: pick(associations, ["operationIds", "planIds", "proposalIds", "providerActionIds", "evidenceIds", "outcomeIds"]) })),
     proposals: (registry.proposals ?? []).map(({ id, status, approval, submission, merge }) => ({ id, status, approval: approval ? { actorId: approval.actorId, approvedAt: approval.approvedAt } : null, submission: submission ? { pullRequest: submission.pullRequest, headSha: submission.headSha } : null, merge: merge ? { merged: merge.merged, mergeCommitSha: merge.mergeCommitSha, mergedAt: merge.mergedAt } : null })),
     decisions: (registry.history ?? []).filter(item => String(item.type).startsWith("stewardship_")).map(item => ({ type: item.type, code: item.code ?? null, proposalId: item.proposalId ?? null, at: item.at }))
   };

@@ -28,3 +28,17 @@ test("enable status pause and off are authenticated and browser authority is ign
   assert.deepEqual(calls.map(item => item[0]), ["status", "enable", "paused", "disabled"]);
   assert.ok(calls.every(item => item.at(-1).actorId === "owner"));
 });
+
+test("the actual stewardship status route projects registry evidence without internal fields", async t => {
+  const engine = {
+    inspectStewardship: async () => ({ declaredMode: 'autonomous_safe', state:'enabled', credential:'secret', limits:{concurrency:1,credential:'secret'},usage:{active:1,credential:'secret'} }),
+    inspect: async () => ({workRuns:[{id:'w',status:'running',continuationToken:'secret',associations:{proposalIds:['p'],credential:'secret'}}],proposals:[{id:'p',status:'submitted',approval:{actorId:'reviewer',permissions:['secret']},submission:{headSha:'a'.repeat(40),credential:'secret'}}],history:[]}),
+  };
+  const server = createOmniSeedOs({engine,declaration,authenticate});
+  await new Promise(resolve => server.listen(0,'127.0.0.1',resolve)); t.after(() => server.close());
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/stewardship`,{headers:{authorization:`Bearer ${token}`}});
+  assert.equal(response.status,200);
+  const body = await response.json();
+  assert.equal(body.mode,'autonomous_safe'); assert.equal(body.work[0].id,'w'); assert.equal(body.proposals[0].submission.headSha,'a'.repeat(40));
+  assert.doesNotMatch(JSON.stringify(body),/credential|continuationToken|permissions|secret/);
+});
