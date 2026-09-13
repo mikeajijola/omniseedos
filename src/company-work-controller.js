@@ -17,10 +17,11 @@ export class CompanyWorkController {
     const run = await this.engine.invokeOperation(this.declaration, "start_company_work", { intent, idempotencyKey, conversationId }, this.authorization);
     // A matching idempotency key returns the existing work run. Never send the
     // intent to the Agent runtime again or try to reopen a terminal Engine run.
-    if (run.session?.runtimeSessionId || run.session?.id) return withConversationId(run);
+    if (run.status !== "queued" || run.events?.some(event => ["agent_session_started", "agent_session_resumed"].includes(event.type))) return withConversationId(run);
     try {
-      const durableConversationId = typeof conversationId === "string" && conversationId.trim() ? conversationId.trim() : run.id;
-      const previousSession = await this.#conversationSession(durableConversationId, run.id);
+      const durableConversationId = run.conversationId;
+      const inherited = await this.engine.getCompanyWork(this.declaration, run.id, this.authorization, { includeRuntime: true });
+      const previousSession = runtimeContinuation(inherited.session) != null ? inherited.session : await this.#conversationSession(durableConversationId, run.id);
       await this.engine.recordCompanyWorkEvent(this.declaration, run.id, {
         event: { id: `${run.id}:conversation`, type: "company_work_conversation_associated", summary: "This work segment belongs to a durable conversation.", reference: durableConversationId },
       }, this.authorization);

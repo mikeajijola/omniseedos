@@ -49,7 +49,7 @@ test("durable controller runs Eve's tool loop and projects it into Engine compan
   assert.equal(started.status, "running");
   const completed = await controller.inspect(started.id);
   assert.equal(completed.status, "completed");
-  assert.equal(completed.session.streamIndex, 5);
+  assert.equal(completed.session.cursor, 5);
   assert.equal(completed.events.find(item => item.type === "user_message").summary, "What company are you stewarding?");
   assert.equal(completed.events.find(item => item.type === "operation_requested").operationId, "inspect_company");
   assert.equal(completed.events.find(item => item.type === "assistant_message").summary, "I inspected Acme through OmniSeed.");
@@ -112,7 +112,7 @@ test("controller restart preserves one runtime session across idempotent auditab
     }
   };
   const firstController = new CompanyWorkController({ engine, declaration, steward, authorization });
-  const first = await firstController.start({ intent: "First segment", conversationId: "conversation-1", idempotencyKey: "segment-1" });
+  const first = await firstController.start({ intent: "First segment", idempotencyKey: "segment-1" });
   await engine.recordCompanyWorkEvent(declaration, first.id, { status: "completed", event: { id: "completed-1", type: "company_work_settled", summary: "Done.", streamIndex: 4, continuationToken: "continuation-after-first" } }, authorization);
 
   const restartedController = new CompanyWorkController({ engine, declaration, steward, authorization });
@@ -121,14 +121,23 @@ test("controller restart preserves one runtime session across idempotent auditab
 
   assert.notEqual(second.id, first.id);
   assert.equal(replay.id, second.id);
-  assert.equal(second.conversationId, "conversation-1");
-  assert.equal(second.session.id, "session-1");
-  assert.equal(second.session.streamIndex, 4);
+  assert.equal(second.conversationId, first.conversationId);
+  assert.equal(second.session.runtimeSessionId, "session-1");
+  assert.equal(second.session.cursor, 4);
   assert.equal(starts, 1);
   assert.equal(continuations, 1);
   assert.deepEqual(continuedWith[0], { sessionId: "session-1", continuationToken: "continuation-after-first", continuation: "continuation-after-first", message: "Second segment" });
   const listed = await restartedController.list();
-  assert.deepEqual(listed.map(run => run.conversationId), ["conversation-1", "conversation-1"]);
+  assert.deepEqual(listed.map(run => run.conversationId), [first.conversationId, first.conversationId]);
   assert.equal(listed[0].status, "completed");
   assert.equal(listed[1].events.some(event => event.type === "agent_session_resumed"), true);
+});
+
+
+test("starting work cannot invent an Engine conversation identity", async () => {
+  const engine = new OmniSeed({ store: new MemoryStateStore(), workStore: new MemoryCompanyWorkStore(), providers: new ProviderRegistry() });
+  let starts = 0;
+  const controller = new CompanyWorkController({ engine, declaration, steward: { start: async () => { starts++; } }, authorization });
+  await assert.rejects(controller.start({intent: "Resume", conversationId: "unknown-conversation"}), error => error.code === "company_work_conversation_not_found");
+  assert.equal(starts, 0);
 });
