@@ -17,7 +17,6 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "vercel-build": "node scripts/build-unified-runtime.mjs --vercel",
     "build:vercel": "node scripts/build-unified-runtime.mjs --vercel",
     "build:runtime": "node scripts/build-unified-runtime.mjs",
     "test": "node --test",
