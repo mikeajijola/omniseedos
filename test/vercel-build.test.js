@@ -14,8 +14,18 @@ test("Vercel build copies the approved public interface into the configured outp
     await buildStaticAssets({ output });
     const html = await readFile(join(output, "index.html"), "utf8");
     const app = await readFile(join(output, "app.js"), "utf8");
+    const styles = await readFile(join(output, "styles.css"), "utf8");
+    const workStyles = await readFile(join(output, "work.css"), "utf8");
     assert.match(html, /OmniSeed OS/);
     assert.match(app, /api\/company/);
+    assert.match(html, /id="steward-response"/);
+    assert.match(styles, /#steward-response\{/);
+    assert.doesNotMatch(styles, /#lily-response\b/);
+    assert.match(html, /id="work-timeline" class="conversation"/);
+    assert.match(workStyles, /\.conversation \{ display: flex; flex-direction: column;/);
+    assert.match(workStyles, /\.conversation article \{[^}]*padding: 10px 12px;/);
+    assert.doesNotMatch(workStyles, /\.conversation article::before|border-left:/);
+    assert.doesNotMatch(workStyles, /\.timeline\b/);
   } finally {
     await rm(output, { recursive: true, force: true });
   }

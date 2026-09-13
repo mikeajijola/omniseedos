@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { withProviderDiagnostics } from "./provider-diagnostics.js";
 import { timingSafeEqual } from "node:crypto";
 import { classifyLilyInteraction, LilyExecutionClass } from "./lily-interaction-router.js";
+import { withConversationId } from "./company-work-controller.js";
 
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
@@ -59,7 +60,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
         if (!stewardAuthorization) throw authError("The declared steward has no server-side runtime identity.");
         const route = classifyLilyInteraction(body.message);
         if (companyWork) {
-          const work = await companyWork.start({ intent: body.message, idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"] });
+          const work = await companyWork.start({ intent: body.message, idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"], conversationId: body.conversationId ?? null });
           return json(response, 202, { ...work, route });
         }
         const result = await steward.handle({ message: body.message, engine, declaration, authorization: stewardAuthorization, executionClass: route.executionClass });
@@ -76,7 +77,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
         if (!allowAnonymousStewardChat) await requireIdentity(authenticate, request, "operator");
         if (!companyWork) return json(response, 404, { code: "company_work_unavailable", error: "Durable company work is not configured." });
         const body = await readJson(request);
-        return json(response, 202, await companyWork.continue(decodeURIComponent(lilyMessageRoute[1]), body.message));
+        return json(response, 202, await companyWork.continue(decodeURIComponent(lilyMessageRoute[1]), body.message, { idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"] }));
       }
       const lilyCancelRoute = /^\/api\/lily\/([^/]+)\/cancel$/.exec(request.url);
       if (lilyCancelRoute && request.method === "POST") {
@@ -102,7 +103,7 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
 
 export async function inspectCompany(engine, declaration) {
   const projection = await engine.inspect(declaration);
-  return addProviderDiagnostics(engine, projection);
+  return addProviderDiagnostics(engine, { ...projection, workRuns: (projection.workRuns ?? []).map(run => withConversationId(run)) });
 }
 
 export function projectStewardshipEvidence(registry) {

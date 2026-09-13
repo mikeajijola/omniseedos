@@ -4,11 +4,29 @@ import { createHmac, randomUUID } from "node:crypto";
  * Resolve the selected stewardship actor's semantic runtime from approved
  * company desired state. The browser never chooses a runtime URL or secret.
  */
-export function createDeclaredStewardClient({ declaration, actorId, env = process.env, fetchImpl = fetch, now = () => Date.now(), nonce = randomUUID } = {}) {
+export function createDeclaredStewardClient({ declaration, actorId, env = process.env, fetchImpl = fetch, now = () => Date.now(), nonce = randomUUID, adapters = {} } = {}) {
   const agent = (declaration?.spec?.resources?.agents ?? []).find(item => item.id === actorId);
   if (!agent) throw new Error("Configured steward is not a declared Agent resource.");
-  const framework = String(agent.spec?.implementation?.framework ?? "").toLowerCase();
-  if (framework !== "eve") throw new Error(`No semantic steward adapter is installed for framework: ${framework || "undeclared"}.`);
+  const protocol = resolveInteractionProtocol(agent);
+  const installed = {
+    "eve.session.v1": context => createEveAdapter(context),
+    ...adapters
+  };
+  const factory = installed[protocol];
+  if (typeof factory !== "function") throw Object.assign(new Error(`No declared steward interaction adapter is installed for protocol: ${protocol}.`), { code: "steward_adapter_unavailable" });
+  return factory({ declaration, agent, actorId, protocol, env, fetchImpl, now, nonce });
+}
+
+export function resolveInteractionProtocol(agent) {
+  const declared = agent?.spec?.runtime?.interaction?.protocol ?? agent?.spec?.runtime?.protocol;
+  if (declared) return String(declared).trim().toLowerCase();
+  // Deliberate migration for existing declarations. Framework is not the
+  // canonical selector for new runtimes.
+  if (String(agent?.spec?.implementation?.framework ?? "").toLowerCase() === "eve") return "eve.session.v1";
+  return "undeclared";
+}
+
+function createEveAdapter({ declaration, agent, env, fetchImpl, now, nonce, protocol }) {
   const session = agent.spec?.runtime?.session ?? {};
   const endpoint = agent.spec?.runtime?.expectedEndpoints?.operation;
   const credentialReference = session.credentialReference;
@@ -17,6 +35,7 @@ export function createDeclaredStewardClient({ declaration, actorId, env = proces
   if (!secret) throw new Error(`The declared steward credential is unavailable: ${credentialReference}.`);
   return new EveStewardClient({
     endpoint,
+    protocol,
     fetchImpl,
     token: () => signSessionToken({
       secret,
@@ -32,13 +51,14 @@ export function createDeclaredStewardClient({ declaration, actorId, env = proces
 
 /** Server-side adapter for Eve's stable session and NDJSON stream protocol. */
 export class EveStewardClient {
-  constructor({ endpoint, token, fetchImpl = fetch }) {
+  constructor({ endpoint, token, fetchImpl = fetch, protocol = "eve.session.v1" }) {
     const parsed = new URL(endpoint);
     if (parsed.protocol !== "https:" && parsed.hostname !== "127.0.0.1" && parsed.hostname !== "localhost") throw new Error("The declared Eve endpoint must use HTTPS outside local development.");
     if (!parsed.pathname.endsWith("/eve/v1/session")) throw new Error("The declared Eve endpoint must identify the canonical session route.");
     this.endpoint = parsed.toString().replace(/\/$/, "");
     this.token = token;
     this.fetch = fetchImpl;
+    this.protocol = protocol;
   }
 
   async start({ message = "" }) {
@@ -53,7 +73,7 @@ export class EveStewardClient {
     if (!started.ok) throw runtimeError("start", started.status);
     const accepted = await started.json();
     if (!accepted?.ok || !accepted.sessionId || !accepted.continuationToken) throw new Error("The declared Eve runtime did not return a durable session and continuation token.");
-    return { sessionId: accepted.sessionId, continuationToken: accepted.continuationToken, streamIndex: 0 };
+    return { protocol: this.protocol, sessionId: accepted.sessionId, continuationToken: accepted.continuationToken, streamIndex: 0 };
   }
 
   async continue({ sessionId, continuationToken, message }) {
@@ -67,7 +87,7 @@ export class EveStewardClient {
     if (!response.ok) throw runtimeError("continue", response.status);
     const accepted = await response.json();
     if (!accepted?.ok || accepted.sessionId !== sessionId) throw new Error("The declared Eve runtime did not continue the expected session.");
-    return { sessionId, continuationToken: accepted.continuationToken ?? continuationToken };
+    return { protocol: this.protocol, sessionId, continuationToken: accepted.continuationToken ?? continuationToken };
   }
 
   async read({ sessionId, streamIndex = 0 }) {
@@ -81,7 +101,7 @@ export class EveStewardClient {
     if (tailIndex === null) throw new Error("The declared Eve runtime did not report a durable stream tail.");
     const events = await readBoundedNdjson(stream, { startIndex: streamIndex, tailIndex, maxEvents: 20 });
     const continuation = [...events].reverse().find(item => item.type === "session.waiting")?.data?.continuationToken ?? null;
-    return { events, streamIndex: streamIndex + events.length, continuationToken: continuation, tailIndex };
+    return { protocol: this.protocol, events, streamIndex: streamIndex + events.length, continuationToken: continuation, tailIndex };
   }
 
   async cancel({ sessionId, turnId = null }) {
@@ -105,7 +125,7 @@ export class EveStewardClient {
     const completed = [...batch.events].reverse().find(item => item.type === "message.completed");
     if (!completed?.data?.message) throw new Error("The declared Eve runtime ended without a completed assistant message.");
     const turn = [...batch.events].reverse().find(item => item.meta?.turnId || item.data?.turnId);
-    return { status: "completed", operationId: null, message: completed.data.message.trim(), runtime: { framework: "eve", sessionId: session.sessionId, turnId: turn?.meta?.turnId ?? turn?.data?.turnId ?? null } };
+    return { status: "completed", operationId: null, message: completed.data.message.trim(), runtime: { product: "eve", protocol: this.protocol, sessionId: session.sessionId, turnId: turn?.meta?.turnId ?? turn?.data?.turnId ?? null } };
   }
 
   async #authorization() { return `Bearer ${await this.token()}`; }

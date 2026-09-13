@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableHttpStateStore } from "../src/durable-http-store.js";
 import { SemanticStewardClient } from "../src/semantic-steward.js";
-import { createDeclaredStewardClient, EveStewardClient, signSessionToken } from "../src/declared-steward.js";
+import { createDeclaredStewardClient, EveStewardClient, resolveInteractionProtocol, signSessionToken } from "../src/declared-steward.js";
 import { createVercelRuntime, restoreVercelApiPath } from "../src/vercel-runtime.js";
 import { projectEveEvent } from "../src/company-work-controller.js";
 import { inspectCompany } from "../src/app.js";
@@ -200,7 +200,7 @@ test("declared steward adapter signs a scoped short-lived token and consumes Eve
   const client = createDeclaredStewardClient({ declaration, actorId: "lily", env: runtimeEnv(), fetchImpl, now: () => 1_700_000_000_000, nonce: () => "nonce" });
   const answer = await client.handle({ message: "What company?" });
   assert.equal(answer.message, "OmniSeed Ecosystem");
-  assert.deepEqual(answer.runtime, { framework: "eve", sessionId: "ses_1", turnId: "turn_1" });
+  assert.deepEqual(answer.runtime, { product: "eve", protocol: "eve.session.v1", sessionId: "ses_1", turnId: "turn_1" });
   const token = calls[0].init.headers.authorization.slice(7);
   const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url"));
   assert.deepEqual({ iss: payload.iss, aud: payload.aud, sub: payload.sub, company_ref: payload.company_ref, exp: payload.exp - payload.iat }, { iss: "omniseed", aud: "omniseed-lily", sub: "omniseed-os:omniseed_ecosystem", company_ref: "omniseed_ecosystem", exp: 300 });
@@ -269,6 +269,36 @@ test("declared steward runtime fails closed for missing config, insecure endpoin
   parsed.spec.resources.agents[0].spec.runtime.expectedEndpoints.operation = "https://remote.test/eve/v1/session";
   assert.throws(() => createDeclaredStewardClient({ declaration: parsed, actorId: "lily", env: {} }), /credential is unavailable/);
   assert.throws(() => signSessionToken({ secret: "weak", issuer: "i", audience: "a", subject: "s", companyId: "c" }), /at least 32/);
+});
+
+test("declared steward selects installed adapters by protocol rather than actor or framework", async () => {
+  const agent = {
+    id: "hermes",
+    spec: {
+      implementation: { framework: "custom-product" },
+      runtime: { interaction: { protocol: "acme.conversation.v2" } }
+    }
+  };
+  const declaration = { metadata: { id: "company" }, spec: { resources: { agents: [agent] } } };
+  const adapter = {
+    async start() { return { protocol: "acme.conversation.v2", sessionId: "opaque", continuationToken: "server-only", streamIndex: 0 }; },
+    async continue(input) { return input; },
+    async read() { return { events: [], streamIndex: 0, tailIndex: -1 }; },
+    async cancel() { return { ok: true }; },
+    async health() { return { status: "healthy" }; }
+  };
+  const client = createDeclaredStewardClient({
+    declaration,
+    actorId: "hermes",
+    adapters: { "acme.conversation.v2": context => {
+      assert.equal(context.actorId, "hermes");
+      assert.equal(context.declaration.metadata.id, "company");
+      return adapter;
+    } }
+  });
+  assert.equal(client, adapter);
+  assert.equal(resolveInteractionProtocol(agent), "acme.conversation.v2");
+  assert.throws(() => createDeclaredStewardClient({ declaration, actorId: "hermes" }), error => error.code === "steward_adapter_unavailable");
 });
 
 test("read-only inspection mode projects pinned Git desired state without fabricating durable observations", async () => {
