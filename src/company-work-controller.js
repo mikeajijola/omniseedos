@@ -134,12 +134,14 @@ export class CompanyWorkController {
   }
 
   async #resumeApprovedWork(raw) {
-    if (raw.status !== "waiting_for_company_approval" && raw.status !== "observing") return raw;
+    if (!["waiting_for_company_approval", "waiting_for_checks", "observing"].includes(raw.status)) return raw;
     const proposalId = raw.associations.proposalIds.at(-1);
     if (proposalId) {
       const proposal = await this.engine.getCompanyChangeProposal(this.declaration, proposalId, this.authorization);
       if (raw.status === "waiting_for_company_approval" && proposal.status === "approved") {
         await this.continue(raw.id, `OmniSeed governance event: Company Change ${proposalId} now has an independent exact approval. Continue through ordinary governed operations; do not approve anything yourself.`);
+      } else if (raw.status === "waiting_for_checks" && proposal.status === "merged") {
+        await this.continue(raw.id, "OmniSeed governance event: Company Change " + proposalId + " passed its governed merge conditions and is merged. Resolve the recorded merge outcome, reconcile as policy permits, observe reality, and explain the evidence.");
       } else if (raw.status === "observing" && proposal.status === "merged") {
         await this.continue(raw.id, `OmniSeed governance event: Company Change ${proposalId} is merged. Resolve the new desired revision, reconcile as policy permits, observe reality, and explain the evidence.`);
       }

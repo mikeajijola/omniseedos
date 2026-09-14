@@ -141,3 +141,28 @@ test("starting work cannot invent an Engine conversation identity", async () => 
   await assert.rejects(controller.start({intent: "Resume", conversationId: "unknown-conversation"}), error => error.code === "company_work_conversation_not_found");
   assert.equal(starts, 0);
 });
+
+test("submitted work is durably resumed after governed merge conditions pass", async () => {
+  const run = { id: "work-1", status: "waiting_for_checks", events: [], associations: { proposalIds: ["proposal-1"], planIds: [] }, session: { runtimeSessionId: "session-1", continuation: "continue-1", cursor: 4 } };
+  let resumedWith = null;
+  const engine = {
+    async getCompanyWork() { return structuredClone(run); },
+    async getCompanyChangeProposal() { return { id: "proposal-1", status: "merged" }; },
+    async invokeOperation(_declaration, operation, input) {
+      if (operation === "continue_company_work") return run;
+      if (operation === "get_company_work") return structuredClone(run);
+      assert.fail("Unexpected operation " + operation + " " + JSON.stringify(input));
+    },
+    async recordCompanyWorkEvent(_declaration, _id, input) { run.events.push(input.event); return structuredClone(run); },
+    async attachCompanyWorkSession() { return structuredClone(run); },
+  };
+  const steward = {
+    async continue(input) { resumedWith = input; return { sessionId: "session-1", continuationToken: "continue-2", streamIndex: 4 }; },
+    async read() { return { events: [] }; },
+  };
+  const controller = new CompanyWorkController({ engine, declaration, steward, authorization });
+  await controller.advance(run.id);
+  assert.equal(resumedWith.sessionId, "session-1");
+  assert.match(resumedWith.message, /passed its governed merge conditions and is merged/);
+  assert.match(resumedWith.message, /reconcile as policy permits, observe reality, and explain the evidence/);
+});

@@ -45,7 +45,7 @@ function providerCard(item) {
 }
 
 function project(kind) {
-  $("#home").classList.add("hidden"); $("#projection").classList.remove("hidden");
+  showView("projection");
   $("#projection-kind").textContent = "COMPANY PROJECTION"; $("#projection-title").textContent = labels[kind] ?? "Capabilities";
   let content = [];
   if (kind === "capabilities") content = registry.capabilities.map(item => card(item.name, `${item.requirements.filter(req => req.covered).length}/${item.requirements.length} requirements covered`, item.state));
@@ -56,7 +56,43 @@ function project(kind) {
   $("#projection-content").innerHTML = content.join("") || card(`No ${kind}`, "No desired resources are declared", "missing");
 }
 
-$("#nav").addEventListener("click", event => { const link=event.target.closest("a"); if(!link)return; document.querySelectorAll("nav a").forEach(a=>{ a.classList.remove("active"); a.removeAttribute("aria-current"); }); link.classList.add("active"); link.setAttribute("aria-current", "page"); const kind=link.hash.slice(1); if(kind==="home"){ $("#projection").classList.add("hidden"); $("#home").classList.remove("hidden"); } else project(kind); });
+function showView(id) { ["#home", "#projection", "#stewardship"].forEach(selector => $(selector).classList.toggle("hidden", selector !== "#" + id)); }
+$("#nav").addEventListener("click", event => { const link=event.target.closest("a"); if(!link)return; document.querySelectorAll("nav a").forEach(a=>{ a.classList.remove("active"); a.removeAttribute("aria-current"); }); link.classList.add("active"); link.setAttribute("aria-current", "page"); const kind=link.hash.slice(1); if(kind==="home") showView("home"); else if(kind==="stewardship"){ showView("stewardship"); loadStewardship(); } else project(kind); });
+
+async function operatorRequest(url, options = {}) {
+  let response = await fetch(url, { ...options, headers: { ...(options.headers ?? {}), ...(operatorToken ? { authorization: "Bearer " + operatorToken } : {}) } });
+  if (response.status === 403 && !operatorToken) {
+    operatorToken = window.prompt("Enter the operator access token. It is kept only until you close or reload this page.") ?? "";
+    if (operatorToken) response = await fetch(url, { ...options, headers: { ...(options.headers ?? {}), authorization: "Bearer " + operatorToken } });
+  }
+  if (response.status === 403) operatorToken = "";
+  return response;
+}
+async function loadStewardship() {
+  const response = await operatorRequest("/api/stewardship"), result = await response.json();
+  if (!response.ok) { $("#stewardship-message").textContent = result.error ?? "Stewardship status is unavailable."; return; }
+  $("#stewardship-message").textContent = (result.mode ?? "Declared") + " is " + result.state + ". " + (result.expiresAt ? "It expires " + result.expiresAt + "." : "No expiry is active.");
+  const limits = Object.entries(result.limits ?? {}).map(([key,value]) => key + ": " + value).join(" · ") || "No limits projected";
+  const decisions = (result.decisions ?? []).map(item => card(item.code ?? item.type, item.summary ?? item.reason ?? item.at ?? "Recorded decision", item.state ?? "recorded"));
+  const work = (result.work ?? []).map(item => card(item.summary ?? item.id, "Work · " + item.status, item.status));
+  const proposals = (result.proposals ?? []).map(item => card(item.id, "Proposal · " + item.status + (item.submission?.headSha ? " · reviewed head " + item.submission.headSha : ""), item.status));
+  const gates = (result.gates ?? []).map(item => card(item.id ?? item.type, item.reason ?? item.code ?? "Governance gate", item.state ?? "recorded"));
+  const outcomes = (result.outcomes ?? []).map(item => card(item.id ?? item.type, item.summary ?? "Reconciliation outcome", item.status ?? "recorded"));
+  const evidence = (result.evidence ?? []).map(item => card(item.id, item.summary ?? item.type ?? "Evidence", item.status ?? "recorded"));
+  $("#stewardship-content").innerHTML = [card("Limits and usage", limits + " · active: " + (result.usage?.active ?? 0), result.state), ...work, ...proposals, ...gates, ...outcomes, ...decisions, ...evidence].join("");
+}
+async function controlStewardship(action) {
+  const expiry = $("#stewardship-expiry").value;
+  if (action === "enable" && !expiry) { $("#stewardship-message").textContent = "Choose when this bounded autonomous period must expire."; return; }
+  const body = action === "enable" ? JSON.stringify({ expiresAt: expiry ? new Date(expiry).toISOString() : null }) : undefined;
+  const response = await operatorRequest("/api/stewardship/" + action, { method: "POST", headers: body ? { "content-type": "application/json" } : {}, body });
+  const result = await response.json();
+  if (!response.ok) { $("#stewardship-message").textContent = (result.code ?? "error") + ": " + (result.error ?? "The control was denied."); return; }
+  await loadStewardship();
+}
+$("#enable-stewardship").addEventListener("click", () => controlStewardship("enable"));
+$("#pause-stewardship").addEventListener("click", () => controlStewardship("pause"));
+$("#disable-stewardship").addEventListener("click", () => controlStewardship("off"));
 $("#steward-form").addEventListener("submit", async event => {
   event.preventDefault();
   const message = $("#intent").value.trim();

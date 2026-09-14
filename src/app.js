@@ -118,7 +118,10 @@ export function projectStewardshipEvidence(registry) {
     limits: pick(autonomy.limits, ["concurrency", "dailyChanges", "repairRounds", "actions"]), usage: pick(autonomy.usage, ["active", "dailyChanges", "actions", "repairRounds", "day"]),
     work: (registry.workRuns ?? []).map(({ id, status, summary, associations }) => ({ id, status, summary, associations: pick(associations, ["operationIds", "planIds", "proposalIds", "providerActionIds", "evidenceIds", "outcomeIds"]) })),
     proposals: (registry.proposals ?? []).map(({ id, status, approval, submission, merge }) => ({ id, status, approval: approval ? { actorId: approval.actorId, approvedAt: approval.approvedAt } : null, submission: submission ? { pullRequest: submission.pullRequest, headSha: submission.headSha } : null, merge: merge ? { merged: merge.merged, mergeCommitSha: merge.mergeCommitSha, mergedAt: merge.mergedAt } : null })),
-    decisions: (registry.history ?? []).filter(item => String(item.type).startsWith("stewardship_")).map(item => ({ type: item.type, code: item.code ?? null, proposalId: item.proposalId ?? null, at: item.at }))
+    decisions: (registry.history ?? []).filter(item => /stewardship|protected|denied|gate/.test(String(item.type ?? "") + " " + String(item.code ?? ""))).map(item => pick(item, ["type", "code", "state", "reason", "summary", "proposalId", "workRunId", "at"])),
+    gates: (registry.gates ?? []).map(item => pick(item, ["id", "type", "state", "code", "reason", "proposalId", "headSha", "checkedAt"])),
+    outcomes: (registry.outcomes ?? registry.reconciliationOutcomes ?? []).map(item => pick(item, ["id", "type", "status", "summary", "proposalId", "planId", "evidenceIds", "at"])),
+    evidence: (registry.evidence ?? []).map(item => pick(item, ["id", "type", "status", "summary", "source", "reference", "observedAt", "recordedAt"]))
   };
 }
 
