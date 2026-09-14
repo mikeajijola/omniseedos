@@ -5,7 +5,7 @@
   <aside>
     <a class="brand" href="#home"><span class="seed">◉</span> OmniSeed</a>
     <nav id="nav" aria-label="Company views">
-      <a class="active" aria-current="page" href="#home" id="steward-nav">Steward</a><a href="#capabilities">Capabilities</a><a href="#realisations">Realisations</a><a href="#plan">Plan</a><a href="#observe">Observe</a><a href="#activity">Activity</a>
+      <a class="active" aria-current="page" href="#home" id="steward-nav">Steward</a><a href="#stewardship">Autonomy</a><a href="#capabilities">Capabilities</a><a href="#realisations">Realisations</a><a href="#plan">Plan</a><a href="#observe">Observe</a><a href="#activity">Activity</a>
     </nav>
   </aside>
   <main>
@@ -19,6 +19,12 @@
       <p id="steward-response" aria-live="polite"></p>
       <section id="steward-work" class="work hidden" aria-live="polite"><div class="section-title"><h2>Conversation</h2><span id="work-status"></span></div><div id="work-timeline" class="conversation" role="log" aria-label="Conversation and governed company work"></div><button id="cancel-work" type="button" class="secondary hidden">Cancel current work</button></section>
       <div class="section-title"><h2>Needs attention</h2><span id="attention-count"></span></div><div id="attention" class="cards"></div>
+    </section>
+    <section id="stewardship" class="view hidden">
+      <p class="eyebrow">GOVERNED AUTONOMY</p><h1>Company stewardship</h1>
+      <p id="stewardship-message" aria-live="polite">Sign in to inspect or change the current stewardship profile.</p>
+      <div class="stewardship-controls"><label for="stewardship-expiry">Enable until</label><input id="stewardship-expiry" type="datetime-local" required><button id="enable-stewardship" type="button">Enable</button><button id="pause-stewardship" type="button" class="secondary">Pause</button><button id="disable-stewardship" type="button" class="secondary">Turn off</button></div>
+      <div id="stewardship-content" class="cards"></div>
     </section>
     <section id="projection" class="view hidden"><p class="eyebrow" id="projection-kind"></p><h1 id="projection-title"></h1><div id="projection-content" class="cards"></div></section>
   </main>

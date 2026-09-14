@@ -19,6 +19,18 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
   return async (request, response) => {
     try {
       if (request.url === "/api/company" && request.method === "GET") return json(response, 200, await inspectCompany(engine, declaration));
+      if (request.url === "/api/stewardship" && request.method === "GET") {
+        const authorization = await requireIdentity(authenticate, request, "operator");
+        const profile = await engine.inspectStewardship(declaration, authorization);
+        const registry = await engine.inspect(declaration);
+        return json(response, 200, projectStewardshipEvidence({ ...registry, stewardship: { autonomy: profile } }));
+      }
+      if (request.url === "/api/stewardship/enable" && request.method === "POST") {
+        const body = await readJson(request), authorization = await requireIdentity(authenticate, request, "operator");
+        return json(response, 200, await engine.enableStewardship(declaration, { expiresAt: body.expiresAt }, authorization));
+      }
+      if (request.url === "/api/stewardship/pause" && request.method === "POST") return json(response, 200, await engine.setStewardshipState(declaration, "paused", await requireIdentity(authenticate, request, "operator")));
+      if (request.url === "/api/stewardship/off" && request.method === "POST") return json(response, 200, await engine.setStewardshipState(declaration, "disabled", await requireIdentity(authenticate, request, "operator")));
       const operationRoute = /^\/v1\/companies\/([^/]+)\/operations\/([^/:]+):invoke$/.exec(request.url);
       if (operationRoute && request.method === "POST") {
         if (decodeURIComponent(operationRoute[1]) !== declaration.metadata.id) return json(response, 404, { ok: false, code: "company_not_found", error: "Company is not served by this runtime." });
@@ -94,6 +106,23 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
 export async function inspectCompany(engine, declaration) {
   const projection = await engine.inspect(declaration);
   return addProviderDiagnostics(engine, { ...projection, workRuns: (projection.workRuns ?? []).map(run => withConversationId(run)) });
+}
+
+const pick = (value, keys) => Object.fromEntries(keys.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
+
+export function projectStewardshipEvidence(registry) {
+  const autonomy = registry.stewardship?.autonomy ?? null;
+  if (!autonomy) return null;
+  return {
+    mode: autonomy.declaredMode, state: autonomy.state, activeFrom: autonomy.activeFrom, expiresAt: autonomy.expiresAt,
+    limits: pick(autonomy.limits, ["concurrency", "dailyChanges", "repairRounds", "actions"]), usage: pick(autonomy.usage, ["active", "dailyChanges", "actions", "repairRounds", "day"]),
+    work: (registry.workRuns ?? []).map(({ id, status, summary, associations }) => ({ id, status, summary, associations: pick(associations, ["operationIds", "planIds", "proposalIds", "providerActionIds", "evidenceIds", "outcomeIds"]) })),
+    proposals: (registry.proposals ?? []).map(({ id, status, approval, submission, merge }) => ({ id, status, approval: approval ? { actorId: approval.actorId, approvedAt: approval.approvedAt } : null, submission: submission ? { pullRequest: submission.pullRequest, headSha: submission.headSha } : null, merge: merge ? { merged: merge.merged, mergeCommitSha: merge.mergeCommitSha, mergedAt: merge.mergedAt } : null })),
+    decisions: (registry.history ?? []).filter(item => /stewardship|protected|denied|gate/.test(String(item.type ?? "") + " " + String(item.code ?? ""))).map(item => pick(item, ["type", "code", "state", "reason", "summary", "proposalId", "workRunId", "at"])),
+    gates: (registry.gates ?? []).map(item => pick(item, ["id", "type", "state", "code", "reason", "proposalId", "headSha", "checkedAt"])),
+    outcomes: (registry.outcomes ?? registry.reconciliationOutcomes ?? []).map(item => pick(item, ["id", "type", "status", "summary", "proposalId", "planId", "evidenceIds", "at"])),
+    evidence: (registry.evidence ?? []).map(item => pick(item, ["id", "type", "status", "summary", "source", "reference", "observedAt", "recordedAt"]))
+  };
 }
 
 function addProviderDiagnostics(engine, projection) {

@@ -38,10 +38,11 @@ test("production runtime composition pins Lily and emits one Eve-hosted Vercel a
   assert.equal(vercel.outputDirectory, undefined);
   assert.equal(vercel.buildCommand, "npm run build:vercel");
   assert.equal(manifest.scripts["build:vercel"], "node scripts/build-unified-runtime.mjs --vercel");
-  assert.equal(manifest.scripts["vercel-build"], "node scripts/build-unified-runtime.mjs --vercel");
+  assert.equal(manifest.scripts["vercel-build"], undefined, "Vercel must not invoke a second runtime assembly while collecting the first build output");
   assert.equal(vercel.fluid, true);
   const assembly = await readFile(new URL("../runtime-assembly/omniseed-os.ts", import.meta.url), "utf8");
   assert.match(assembly, /\/api\/company/);
+  for (const route of ['GET("/api/stewardship", dispatch)', 'POST("/api/stewardship/enable", dispatch)', 'POST("/api/stewardship/pause", dispatch)', 'POST("/api/stewardship/off", dispatch)']) assert.ok(assembly.includes(route));
   assert.match(assembly, /\/v1\/companies/);
   assert.match(assembly, /\/api\/operations\/:operation/);
   assert.match(assembly, /POST\("\/api\/lily", dispatch\)/);
