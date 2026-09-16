@@ -27,10 +27,10 @@ export function createOmniSeedOsHandler({ engine, declaration, steward = new Gov
       }
       if (request.url === "/api/stewardship/enable" && request.method === "POST") {
         const body = await readJson(request), authorization = await requireIdentity(authenticate, request, "operator");
-        return json(response, 200, await engine.enableStewardship(declaration, { expiresAt: body.expiresAt }, authorization));
+        return json(response, 200, projectStewardshipProfile(await engine.enableStewardship(declaration, { expiresAt: body.expiresAt }, authorization)));
       }
-      if (request.url === "/api/stewardship/pause" && request.method === "POST") return json(response, 200, await engine.setStewardshipState(declaration, "paused", await requireIdentity(authenticate, request, "operator")));
-      if (request.url === "/api/stewardship/off" && request.method === "POST") return json(response, 200, await engine.setStewardshipState(declaration, "disabled", await requireIdentity(authenticate, request, "operator")));
+      if (request.url === "/api/stewardship/pause" && request.method === "POST") return json(response, 200, projectStewardshipProfile(await engine.setStewardshipState(declaration, "paused", await requireIdentity(authenticate, request, "operator"))));
+      if (request.url === "/api/stewardship/off" && request.method === "POST") return json(response, 200, projectStewardshipProfile(await engine.setStewardshipState(declaration, "disabled", await requireIdentity(authenticate, request, "operator"))));
       const operationRoute = /^\/v1\/companies\/([^/]+)\/operations\/([^/:]+):invoke$/.exec(request.url);
       if (operationRoute && request.method === "POST") {
         if (decodeURIComponent(operationRoute[1]) !== declaration.metadata.id) return json(response, 404, { ok: false, code: "company_not_found", error: "Company is not served by this runtime." });
@@ -114,14 +114,24 @@ export function projectStewardshipEvidence(registry) {
   const autonomy = registry.stewardship?.autonomy ?? null;
   if (!autonomy) return null;
   return {
-    mode: autonomy.declaredMode, state: autonomy.state, activeFrom: autonomy.activeFrom, expiresAt: autonomy.expiresAt,
-    limits: pick(autonomy.limits, ["concurrency", "dailyChanges", "repairRounds", "actions"]), usage: pick(autonomy.usage, ["active", "dailyChanges", "actions", "repairRounds", "day"]),
+    ...projectStewardshipProfile(autonomy),
     work: (registry.workRuns ?? []).map(({ id, status, summary, associations }) => ({ id, status, summary, associations: pick(associations, ["operationIds", "planIds", "proposalIds", "providerActionIds", "evidenceIds", "outcomeIds"]) })),
     proposals: (registry.proposals ?? []).map(({ id, status, approval, submission, merge }) => ({ id, status, approval: approval ? { actorId: approval.actorId, approvedAt: approval.approvedAt } : null, submission: submission ? { pullRequest: submission.pullRequest, headSha: submission.headSha } : null, merge: merge ? { merged: merge.merged, mergeCommitSha: merge.mergeCommitSha, mergedAt: merge.mergedAt } : null })),
     decisions: (registry.history ?? []).filter(item => /stewardship|protected|denied|gate/.test(String(item.type ?? "") + " " + String(item.code ?? ""))).map(item => pick(item, ["type", "code", "state", "reason", "summary", "proposalId", "workRunId", "at"])),
     gates: (registry.gates ?? []).map(item => pick(item, ["id", "type", "state", "code", "reason", "proposalId", "headSha", "checkedAt"])),
     outcomes: (registry.outcomes ?? registry.reconciliationOutcomes ?? []).map(item => pick(item, ["id", "type", "status", "summary", "proposalId", "planId", "evidenceIds", "at"])),
     evidence: (registry.evidence ?? []).map(item => pick(item, ["id", "type", "status", "summary", "source", "reference", "observedAt", "recordedAt"]))
+  };
+}
+
+function projectStewardshipProfile(autonomy) {
+  return {
+    mode: autonomy?.declaredMode,
+    state: autonomy?.state,
+    activeFrom: autonomy?.activeFrom,
+    expiresAt: autonomy?.expiresAt,
+    limits: pick(autonomy?.limits, ["concurrency", "dailyChanges", "repairRounds", "actions"]),
+    usage: pick(autonomy?.usage, ["active", "dailyChanges", "actions", "repairRounds", "day"]),
   };
 }
 
