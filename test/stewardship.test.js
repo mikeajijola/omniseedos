@@ -19,19 +19,21 @@ test("safe projection includes controls, limits, work, gates, outcomes, evidence
 });
 
 test("enable status pause and off are authenticated and browser authority is ignored", async t => {
-  const calls = [], profile = state => ({ declaredMode: "autonomous_safe", state });
+  const calls = [], profile = state => ({ declaredMode: "autonomous_safe", state, credential: "server-secret" });
   const engine = { providers: { list: () => [] }, inspect: async () => ({ providers: [], capabilities: [], realisations: [], resources: [] }), inspectStewardship: async (_d, auth) => (calls.push(["status", auth]), profile("disabled")), enableStewardship: async (_d, input, auth) => (calls.push(["enable", input, auth]), profile("enabled")), setStewardshipState: async (_d, state, auth) => (calls.push([state, auth]), profile(state)) };
   const server = createOmniSeedOs({ engine, declaration, authenticate });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); t.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`, headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
   assert.equal((await fetch(`${base}/api/stewardship`)).status, 403);
   assert.equal((await fetch(`${base}/api/stewardship`, { headers })).status, 200);
-  await fetch(`${base}/api/stewardship/enable`, { method: "POST", headers, body: JSON.stringify({ expiresAt: "2026-09-02T00:00:00Z", permissions: ["*"] }) });
-  await fetch(`${base}/api/stewardship/pause`, { method: "POST", headers });
-  await fetch(`${base}/api/stewardship/off`, { method: "POST", headers });
+  const controlResponses = [];
+  controlResponses.push(await fetch(`${base}/api/stewardship/enable`, { method: "POST", headers, body: JSON.stringify({ expiresAt: "2026-09-02T00:00:00Z", permissions: ["*"], provider: "browser-chosen" }) }));
+  controlResponses.push(await fetch(`${base}/api/stewardship/pause`, { method: "POST", headers }));
+  controlResponses.push(await fetch(`${base}/api/stewardship/off`, { method: "POST", headers }));
   assert.deepEqual(calls.map(item => item[0]), ["status", "enable", "paused", "disabled"]);
   assert.ok(calls.every(item => item.at(-1).actorId === "owner"));
   assert.deepEqual(calls[1][1], { expiresAt: "2026-09-02T00:00:00Z" });
+  for (const response of controlResponses) assert.doesNotMatch(await response.text(), /credential|server-secret/);
 });
 
 test("status preserves the Engine's expired state instead of deriving policy in the adapter", async t => {
@@ -43,12 +45,13 @@ test("status preserves the Engine's expired state instead of deriving policy in 
   assert.equal(body.expiresAt, "2026-09-02T00:00:00Z");
 });
 
-test("browser exposes authenticated bounded controls and renders governed pauses and evidence", async () => {
-  const [html, browser] = await Promise.all([readFile(new URL("../public/index.html", import.meta.url), "utf8"), readFile(new URL("../public/app.js", import.meta.url), "utf8")]);
+test("browser and production runtime expose authenticated bounded controls and governed evidence", async () => {
+  const [html, browser, runtime] = await Promise.all([readFile(new URL("../public/index.html", import.meta.url), "utf8"), readFile(new URL("../public/app.js", import.meta.url), "utf8"), readFile(new URL("../src/vercel-runtime.js", import.meta.url), "utf8")]);
   for (const id of ["stewardship-expiry", "enable-stewardship", "pause-stewardship", "disable-stewardship", "stewardship-content"]) assert.match(html, new RegExp("id=\\\"" + id + "\\\""));
   for (const field of ["result.decisions", "result.gates", "result.outcomes", "result.evidence"]) assert.ok(browser.includes(field));
   assert.match(browser, /authorization: "Bearer " \+ operatorToken/);
   assert.doesNotMatch(browser, /permissions\s*:/);
+  assert.match(runtime, /"stewardship\.read", "stewardship\.control"/);
 });
 
 test("the actual stewardship status route projects registry evidence without internal fields", async t => {
