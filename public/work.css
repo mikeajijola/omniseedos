@@ -13,3 +13,6 @@
 .conversation small { color: #68756c; }
 @media (max-width: 640px) { .conversation-toolbar { flex-wrap: wrap; } .conversation article { max-width: 94%; } }
 @media (prefers-reduced-motion: reduce) { .conversation * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* Revision hashes and evidence identifiers must fit narrow conversation views. */
+#steward-response, .conversation article { overflow-wrap: anywhere; min-width: 0; }
