@@ -166,3 +166,14 @@ test("submitted work is durably resumed after governed merge conditions pass", a
   assert.match(resumedWith.message, /passed its governed merge conditions and is merged/);
   assert.match(resumedWith.message, /reconcile as policy permits, observe reality, and explain the evidence/);
 });
+
+test('input requests expose prompts and choices without runtime action payloads', async () => {
+  const { projectRuntimeEvent } = await import('../src/company-work-controller.js');
+  const event = projectRuntimeEvent({type:'input.requested', data:{requests:[{kind:'session-limit',requestId:'request-1',prompt:'Output budget reached. Continue?',options:[{id:'approve',label:'Approve',description:'Allow another bounded window.'},{id:'stop',label:'Stop'}],action:{input:{credential:'DO-NOT-EXPOSE'},toolName:'internal'}}]}}, 'session', 1);
+  assert.match(event.summary,/Output budget reached/);
+  assert.match(event.summary,/Approve/);
+  assert.match(event.summary,/Stop/);
+  assert.equal(JSON.stringify(event).includes('DO-NOT-EXPOSE'),false);
+  assert.equal(JSON.stringify(event).includes('internal'),false);
+  assert.equal(projectRuntimeEvent({type:'input.requested',data:{requests:[null,{}]}},'session',2).summary,'The steward needs input, but supplied no readable prompt.');
+});

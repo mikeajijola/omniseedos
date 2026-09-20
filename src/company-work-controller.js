@@ -196,7 +196,7 @@ export function projectRuntimeEvent(event, sessionId, index) {
   const summary = event.type === "message.completed" ? event.data?.message
     : event.type === "actions.requested" ? `Lily requested ${operationIds.join(", ") || "runtime work"}.`
     : event.type === "action.result" ? `${result?.toolName ?? "Runtime action"} ${event.data?.status ?? "completed"}.`
-    : event.type === "input.requested" ? "Lily requested operator input."
+    : event.type === "input.requested" ? inputRequestSummary(event.data?.requests)
     : event.type === "session.waiting" ? "Lily's durable Eve session is waiting."
     : event.type === "session.failed" || event.type === "turn.failed" ? safeError(event.data?.error ?? event.data)
     : null;
@@ -260,3 +260,16 @@ function mapEventType(type) {
 }
 function safeError(error) { return String(error?.message ?? error?.code ?? "The semantic runtime could not continue.").slice(0, 2_000); }
 function workError(code, message) { return Object.assign(new Error(message), { code }); }
+
+// Only user-facing text crosses the runtime boundary; action inputs stay private.
+function inputRequestSummary(requests) {
+  const text = value => typeof value === "string" ? value.slice(0, 2000) : "";
+  const prompts = (Array.isArray(requests) ? requests : []).slice(0, 10).flatMap(request => {
+    const prompt = text(request?.prompt);
+    if (!prompt) return [];
+    const options = (Array.isArray(request.options) ? request.options : []).slice(0, 10)
+      .map(option => text(option?.label)).filter(Boolean);
+    return [prompt + (options.length ? ` Choices: ${options.join("; ")}. Reply with your choice.` : "")];
+  });
+  return prompts.join("\n\n") || "The steward needs input, but supplied no readable prompt.";
+}

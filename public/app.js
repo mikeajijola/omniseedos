@@ -6,6 +6,8 @@ let operatorToken = "";
 let currentWork = null;
 let conversations = [];
 let workPoll = null;
+let selectionVersion = 0;
+let restoreConversation = true;
 const $ = selector => document.querySelector(selector);
 const labels = { capabilities:"Capabilities",realisations:"Realisations",plan:"Plan",observe:"Observe",activity:"Activity" };
 
@@ -22,7 +24,8 @@ async function load() {
   renderAttention();
   conversations = groupConversations(registry.workRuns ?? []);
   renderConversationPicker();
-  if (!currentWork && conversations.length) {
+  if (restoreConversation && !currentWork && conversations.length) {
+    restoreConversation = false;
     currentWork = conversations.at(-1).runs.at(-1);
     renderWork(currentWork);
     if (isActive(currentWork.status)) scheduleWorkPoll();
@@ -97,6 +100,9 @@ $("#steward-form").addEventListener("submit", async event => {
   event.preventDefault();
   const message = $("#intent").value.trim();
   if (!message) return;
+  selectionVersion++;
+  restoreConversation = false;
+  clearTimeout(workPoll);
   $("#steward-response").textContent = "The steward is accepting the message…";
   let response = await invokeSteward(message);
   if (response.status === 403 && !operatorToken) {
@@ -135,15 +141,20 @@ function scheduleWorkPoll(delay = 1200) {
   workPoll = setTimeout(pollWork, delay);
 }
 async function pollWork() {
+  const selected = currentWork;
+  const version = selectionVersion;
+  if (!selected) return;
   try {
-    const response = await fetch(`/api/lily/${encodeURIComponent(currentWork.id)}`, { headers: operatorToken ? { authorization: `Bearer ${operatorToken}` } : {} });
+    const response = await fetch(`/api/lily/${encodeURIComponent(selected.id)}`, { headers: operatorToken ? { authorization: `Bearer ${operatorToken}` } : {} });
     const result = await response.json();
+    if (version !== selectionVersion || currentWork?.id !== selected.id) return;
     if (!response.ok) throw new Error(result.error ?? "Company work update failed");
     currentWork = result;
     renderWork(result);
     await load();
     scheduleWorkPoll(["waiting_for_company_approval", "waiting_for_checks"].includes(result.status) ? 5000 : 1200);
   } catch (error) {
+    if (version !== selectionVersion || currentWork?.id !== selected.id) return;
     $("#steward-response").textContent = error.message;
     scheduleWorkPoll(5000);
   }
@@ -154,7 +165,7 @@ function renderWork(work) {
   const conversation = conversations.find(item => item.id === conversationIdFor(work));
   const events = conversationEvents(conversation, work);
   $("#work-timeline").innerHTML = events.map(event => `<article class="${escapeHtml(event.type)}"><strong>${escapeHtml(eventLabel(event))}</strong>${event.summary ? `<p>${escapeHtml(event.summary)}</p>` : ""}<small>${escapeHtml(event.at ?? "")}${event.operationId ? ` · ${escapeHtml(event.operationId)}` : ""}</small></article>`).join("");
-  const answer = [...events].reverse().find(event => event.type === "assistant_message" && event.summary);
+  const answer = [...events].reverse().find(event => ["assistant_message", "operator_input_requested"].includes(event.type) && event.summary);
   if (answer) $("#steward-response").textContent = answer.summary;
   $("#cancel-work").classList.toggle("hidden", !isActive(work.status));
 }
@@ -185,11 +196,16 @@ function renderConversationPicker() {
   if (currentWork) select.value = conversationIdFor(currentWork);
 }
 $("#conversation-select").addEventListener("change", event => {
+  selectionVersion++;
+  restoreConversation = false;
+  clearTimeout(workPoll);
   const conversation = conversations.find(item => item.id === event.target.value);
   currentWork = conversation?.runs.at(-1) ?? null;
   if (currentWork) { renderWork(currentWork); if (isActive(currentWork.status)) scheduleWorkPoll(100); }
 });
 $("#new-conversation").addEventListener("click", () => {
+  selectionVersion++;
+  restoreConversation = false;
   currentWork = null;
   clearTimeout(workPoll);
   $("#steward-work").classList.add("hidden");
