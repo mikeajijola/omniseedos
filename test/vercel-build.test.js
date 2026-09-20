@@ -34,7 +34,7 @@ test("Vercel build copies the approved public interface into the configured outp
 test("production runtime composition pins Lily and emits one Eve-hosted Vercel artifact", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const vercel = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
-  assert.equal(manifest.dependencies["@omniseed/lily"], "https://github.com/mikeajijola/omniseed-lily/archive/5f90bec10bd8b39b64679e825277c0fdd2508299.tar.gz");
+  assert.equal(manifest.dependencies["@omniseed/lily"], "https://github.com/mikeajijola/omniseed-lily/archive/87d8e368b9ec85b8c68856a9f905262824fb1b2e.tar.gz");
   assert.equal(vercel.outputDirectory, undefined);
   assert.equal(vercel.buildCommand, "npm run build:vercel");
   assert.equal(manifest.scripts["build:vercel"], "node scripts/build-unified-runtime.mjs --vercel");
